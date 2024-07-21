@@ -17,12 +17,12 @@ module.exports = {
         setCommandPath(commandsPath);
         message.reply(`Commands reloaded from ${args[0]}`);
       } else {
-        message.reply(`The directory ${args[0]} does not contain any valid commands.`);
+        message.reply(`\`\`\`The directory ${args[0]} does not contain any valid commands.\`\`\``);
       }
     } catch (error) {
       console.error(error);
       const relativePath = path.relative(basePath, commandsPath);
-      message.reply(`There was an error reloading the commands.\n\n\`\`\`Directory ${relativePath} does not exist.\`\`\``);
+      message.reply(`\`\`\`There was an error reloading the commands.\nDirectory ${relativePath} does not exist.\`\`\``);
     }
   },
 };
