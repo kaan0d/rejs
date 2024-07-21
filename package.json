@@ -1,0 +1,14 @@
+{
+  "name": "rejs",
+  "version": "1.0.0",
+  "description": "rejs",
+  "main": "src/index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5"
+  }
+}
