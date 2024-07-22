@@ -16,6 +16,7 @@ async function fetchServerData() {
 }
 
 async function checkServerUpdates(client) {
+  const startTime = Date.now();
   const currentData = await fetchServerData();
   if (!currentData) return;
 
@@ -30,17 +31,26 @@ async function checkServerUpdates(client) {
 
   if (joined.length > 0) {
     const joinMessage = joined.map(player => `${player.name} joined the server.`).join('\n');
-    //console.log(joinMessage);
+    console.log(joinMessage);
     if (channel) channel.send(joinMessage);
   }
 
   if (left.length > 0) {
     const leftMessage = left.map(player => `${player.name} left the server.`).join('\n');
-    //console.log(leftMessage);
+    console.log(leftMessage);
     if (channel) channel.send(leftMessage);
   }
 
   previousData = currentData;
+
+  const elapsedSeconds = (Date.now() - startTime) / 1000;
+  console.log(`Time taken for this check: ${elapsedSeconds.toFixed(1)} seconds`);
+
+  console.log('Entering delay for 10 minutes...');
+  setTimeout(() => {
+    console.log('Delay over, checking updates again...');
+    checkServerUpdates(client);
+  }, 600000); // 600000 milliseconds = 10 minutes
 }
 
 module.exports = { checkServerUpdates };
