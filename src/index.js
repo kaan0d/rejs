@@ -16,7 +16,7 @@ client.once('ready', () => {
   console.log(
     `${client.user.tag}\n${client.user.id}\n${client.guilds.cache.size} servers`
   );
-  checkServerUpdates(client);
+  setInterval(() => checkServerUpdates(client), 1000); // Check every second
 });
 
 client.on('messageCreate', (message) => {
