@@ -16,7 +16,6 @@ async function fetchServerData() {
 }
 
 async function checkServerUpdates(client) {
-  const startTime = Date.now();
   const currentData = await fetchServerData();
   if (!currentData) return;
 
