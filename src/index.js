@@ -2,6 +2,7 @@ const { Client, IntentsBitField } = require('discord.js');
 const path = require('path');
 require('dotenv').config();
 const { loadCommands, loadGlobalCommands, getCommands, getCurrentCommandPath } = require('../handlers/commandHandler');
+const { checkServerUpdates } = require('./utils/serverMonitor');
 
 const client = new Client({
   intents: [
@@ -11,10 +12,11 @@ const client = new Client({
   ],
 });
 
-client.on("ready", () => {
+client.once('ready', () => {
   console.log(
     `${client.user.tag}\n${client.user.id}\n${client.guilds.cache.size} servers`
   );
+  setInterval(() => checkServerUpdates(client), 1000); // Check every second
 });
 
 client.on('messageCreate', (message) => {

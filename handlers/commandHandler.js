@@ -51,12 +51,31 @@ const getCommands = () => commands;
 
 const getCurrentCommandPath = () => {
   const settings = loadSettings();
-  return settings.currentCommandPath || path.join(__dirname, '..', 'commands');
+  return settings.commands[0].currentCommandPath || path.join(__dirname, '..', 'commands');
+};
+
+const getServerMonitorSettings = () => {
+  const settings = loadSettings();
+  return settings.serverMonitor[0];
 };
 
 const loadSettings = () => {
   if (!fs.existsSync(settingsPath)) {
-    return {};
+    const defaultSettings = {
+      commands: [
+        {
+          currentCommandPath: path.join(__dirname, '..', 'commands')
+        }
+      ],
+      serverMonitor: [
+        {
+          serverDataUrl: 'http://test.com/server-data',
+          channelId: '123456789012345678'
+        }
+      ]
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2), 'utf-8');
+    return defaultSettings;
   }
   return JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 };
@@ -69,7 +88,11 @@ const saveSettings = (settings) => {
 
 const setCommandPath = (commandsPath) => {
   const absolutePath = path.resolve(commandsPath);
-  saveSettings({ currentCommandPath: absolutePath });
+  saveSettings({ commands: [{ currentCommandPath: absolutePath }] });
 };
 
-module.exports = { loadCommands, loadGlobalCommands, getCommands, getCurrentCommandPath, validateCommandsPath, setCommandPath };
+const setServerMonitorSettings = (url, channelId) => {
+  saveSettings({ serverMonitor: [{ serverDataUrl: url, channelId: channelId }] });
+};
+
+module.exports = { loadCommands, loadGlobalCommands, getCommands, getCurrentCommandPath, validateCommandsPath, setCommandPath, getServerMonitorSettings, setServerMonitorSettings };
