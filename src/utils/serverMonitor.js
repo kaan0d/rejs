@@ -1,7 +1,7 @@
 const { getServerMonitorSettings } = require('../../handlers/commandHandler');
 const db = require('./db');
-const moment = require('moment'); // Zaman damgası için moment.js kullanabilirsiniz, npm install moment ile kurun.
-const { initializeDatabase, clearDatabase } = require('./backupAndClear');
+const moment = require('moment');
+const { initializeDatabase } = require('./backupAndClear');
 
 let isInitialized = false;
 
@@ -64,9 +64,27 @@ async function getPreviousDataFromDatabase() {
   });
 }
 
+function isServerRestartTime() {
+  const currentTime = moment();
+  const restartWindows = [
+    { start: '17:00', end: '17:10' },
+    { start: '06:00', end: '06:10' }
+  ];
+
+  return restartWindows.some(window => {
+    const start = moment(window.start, 'HH:mm');
+    const end = moment(window.end, 'HH:mm');
+    return currentTime.isBetween(start, end);
+  });
+}
+
+let retryCount = 0;
+let delayCount = 0;
+let updateInterval;
+
 async function checkServerUpdates(client) {
   if (!isInitialized) {
-    await initializeDatabase(); // Veritabanını yedekle ve temizle
+    await initializeDatabase();
     isInitialized = true;
     const settings = getServerMonitorSettings();
     const channel = client.channels.cache.get(settings.channelId);
@@ -77,7 +95,31 @@ async function checkServerUpdates(client) {
   }
 
   const currentData = await fetchServerData();
-  if (!currentData) return;
+  if (!currentData) {
+    isInitialized = false;
+    if (!isServerRestartTime()) {
+      console.log(`Server is in restart time, delaying the check by 30 seconds. ${currentDate}`);
+      setTimeout(() => checkServerUpdates(client), 30000);
+      return
+    }
+    else {
+      if (retryCount == 5 && delayCount == 0) {
+        delayCount++;
+        console.log('Failed to fetch server data 5 times, delaying the check by 10 minutes.');
+        setTimeout(() => checkServerUpdates(client), 600000);
+      }
+      else if (delayCount == 2) {
+        console.log('Failed to fetch server data 3 times, aborting the check.');
+        clearInterval(updateInterval);
+      }
+      else {
+        retryCount++;
+        console.log('Failed to fetch server data, delaying the check by 30 seconds.');
+        setTimeout(() => checkServerUpdates(client), 30000);
+        return;
+      }
+    } 
+  }
 
   const previousData = await getPreviousDataFromDatabase();
   const currentIds = new Set(currentData.map(player => player.id));
@@ -101,6 +143,8 @@ async function checkServerUpdates(client) {
     const leftMessage = left.map(player => `🟥 ${player.name} left the server.`).join('\n');
     if (channel) channel.send(leftMessage);
   }
+
+  updateInterval = setTimeout(() => checkServerUpdates(client), 1000);
 }
 
 module.exports = { checkServerUpdates };
