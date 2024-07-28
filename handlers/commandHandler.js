@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const db = require('../src/utils/db');
 
 let commands = new Map();
 const settingsPath = path.join(__dirname, '..', 'settings.json');
@@ -95,4 +96,35 @@ const setServerMonitorSettings = (url, channelId) => {
   saveSettings({ serverMonitor: [{ serverDataUrl: url, channelId: channelId }] });
 };
 
-module.exports = { loadCommands, loadGlobalCommands, getCommands, getCurrentCommandPath, validateCommandsPath, setCommandPath, getServerMonitorSettings, setServerMonitorSettings };
+async function handlePlayersCommand(command, message) {
+  let query = '';
+  if (command === 'players') {
+    query = 'SELECT * FROM players WHERE status = "ingame"';
+  } else if (command === 'players left') {
+    query = 'SELECT * FROM players WHERE status = "left"';
+  } else if (command === 'players all') {
+    query = 'SELECT * FROM players';
+  }
+
+  if (query) {
+    db.all(query, (err, rows) => {
+      if (err) {
+        message.channel.send('An error occurred while fetching the data.');
+        console.error(err);
+        return;
+      }
+
+      if (rows.length === 0) {
+        message.channel.send('No players found.');
+        return;
+      }
+
+      const playerList = rows.map(player => `${player.name} (${player.status})`).join('\n');
+      message.channel.send(`Players:\n${playerList}`);
+    });
+  } else {
+    message.channel.send('Invalid command. Use /players, /players left, or /players all.');
+  }
+}
+
+module.exports = { loadCommands, loadGlobalCommands, getCommands, getCurrentCommandPath, validateCommandsPath, setCommandPath, getServerMonitorSettings, setServerMonitorSettings, handlePlayersCommand };
