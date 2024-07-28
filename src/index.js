@@ -16,7 +16,7 @@ client.once('ready', () => {
   console.log(
     `${client.user.tag}\n${client.user.id}\n${client.guilds.cache.size} servers`
   );
-  setInterval(() => checkServerUpdates(client), 1000); // Check every second
+  setInterval(() => checkServerUpdates(client), 1000);
 });
 
 client.on('messageCreate', (message) => {
@@ -37,7 +37,7 @@ client.on('messageCreate', (message) => {
       message.reply('There was an error executing that command.');
     }
   });
-  
+
 try {
     const currentCommandPath = getCurrentCommandPath();
     loadCommands(currentCommandPath);
