@@ -6,7 +6,7 @@ module.exports = {
   async execute(message, args) {
     let query = '';
 
-    if (args.length === 0 || args[0] === 'ingame') {
+    if (args.length === 0 || args[0] === 'ingame' || args[0] === 'clients') {
       query = 'SELECT * FROM players WHERE status = "ingame"';
     } else if (args[0] === 'left') {
       query = 'SELECT * FROM players WHERE status = "left"';
@@ -27,11 +27,19 @@ module.exports = {
           return;
         }
 
-        const playerList = rows.map(player => `${player.name} (${player.status})`).join('\n');
-        message.channel.send(`Players:\n${playerList}`);
+        if (args[0] === 'clients') {
+          const count = rows.length;
+          message.channel.send(`There are currently ${count} players ingame.`);
+          return;
+        }
+        else {
+          const playerList = rows.map(player => `${player.name} (${player.status})`).join('\n');
+          message.channel.send(`Players:\n${playerList}`);
+        }
+
       });
     } else {
-      message.channel.send('Invalid command. Use /players, /players ingame, /players left, or /players all.');
+      message.channel.send('Invalid command. Use /players, /players ingame, /players left, /players all or /players clients.');
     }
   },
 };
