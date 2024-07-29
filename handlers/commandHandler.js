@@ -70,7 +70,8 @@ const loadSettings = () => {
       ],
       serverMonitor: [
         {
-          serverDataUrl: 'http://test.com/server-data',
+          serverPlayersUrl: 'http://example.com:30120/players.json',
+          serverDynamicUrl: 'http://example.com:30120/dynamic.json',
           channelId: '123456789012345678'
         }
       ]
@@ -92,39 +93,25 @@ const setCommandPath = (commandsPath) => {
   saveSettings({ commands: [{ currentCommandPath: absolutePath }] });
 };
 
-const setServerMonitorSettings = (url, channelId) => {
-  saveSettings({ serverMonitor: [{ serverDataUrl: url, channelId: channelId }] });
+const setServerMonitorSettings = (playersUrl, dynamicUrl, channelId) => {
+  saveSettings({
+    serverMonitor: [
+      {
+        serverPlayersUrl: playersUrl,
+        serverDynamicUrl: dynamicUrl,
+        channelId: channelId
+      }
+    ]
+  });
 };
 
-async function handlePlayersCommand(command, message) {
-  let query = '';
-  if (command === 'players') {
-    query = 'SELECT * FROM players WHERE status = "ingame"';
-  } else if (command === 'players left') {
-    query = 'SELECT * FROM players WHERE status = "left"';
-  } else if (command === 'players all') {
-    query = 'SELECT * FROM players';
-  }
-
-  if (query) {
-    db.all(query, (err, rows) => {
-      if (err) {
-        message.channel.send('An error occurred while fetching the data.');
-        console.error(err);
-        return;
-      }
-
-      if (rows.length === 0) {
-        message.channel.send('No players found.');
-        return;
-      }
-
-      const playerList = rows.map(player => `${player.name} (${player.status})`).join('\n');
-      message.channel.send(`Players:\n${playerList}`);
-    });
-  } else {
-    message.channel.send('Invalid command. Use /players, /players left, or /players all.');
-  }
-}
-
-module.exports = { loadCommands, loadGlobalCommands, getCommands, getCurrentCommandPath, validateCommandsPath, setCommandPath, getServerMonitorSettings, setServerMonitorSettings, handlePlayersCommand };
+module.exports = {
+  loadCommands,
+  loadGlobalCommands,
+  getCommands,
+  getCurrentCommandPath,
+  validateCommandsPath,
+  setCommandPath,
+  getServerMonitorSettings,
+  setServerMonitorSettings
+};
