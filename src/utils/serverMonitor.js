@@ -157,7 +157,7 @@ async function checkServerUpdates(client) {
       client.user.setPresence({
         activities: [
           {
-            name: `${countData.clients} players`,
+            name: `${countData.clients}/${countData.sv_maxclients} players`,
           },
         ],
       });
