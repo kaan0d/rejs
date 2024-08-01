@@ -146,6 +146,21 @@ async function checkServerUpdates(client) {
     if (channel) channel.send(leftMessage);
   }
 
+  try {
+    const playersCount = await fetch(settings.serverDynamicUrl);
+    const countData = await playersCount.json();
+
+    client.user.setPresence({
+      activities: [
+        {
+          name: `${countData.clients}/${countData.sv_maxclients} players`,
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("Failed to fetch server dynamic data:", error);
+  }
+
   updateInterval = setTimeout(() => checkServerUpdates(client), 1000);
 }
 
