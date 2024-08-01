@@ -89,4 +89,4 @@ async function initializeDatabase() {
   await clearDatabase();
 }
 
-module.exports = { initializeDatabase, clearDatabase, backupDatabase };
+module.exports = { initializeDatabase };
