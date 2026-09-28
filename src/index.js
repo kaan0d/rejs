@@ -27,7 +27,7 @@ const FILES = {
   moderation: '🔨 Moderation', cases: '🔨 Moderation', staff: '🔨 Moderation', bulk: '🔨 Moderation',
   protection: '🛡️ Protection', logs: '📜 Logs',
   support: '🎫 Support', community: '🎉 Community', events: '🎉 Community',
-  automation: '⚙️ Automation', server: '🎮 Game server', admin: '🔧 Setup', undo: '🔧 Setup', owner: '👑 Owner',
+  automation: '⚙️ Automation', server: '🎮 Game server', channels: '🔧 Setup', admin: '🔧 Setup', undo: '🔧 Setup', owner: '👑 Owner',
 };
 const commands = new Map(
   Object.entries(FILES)

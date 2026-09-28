@@ -46,6 +46,65 @@ const overwriteOf = (channel, targetId) => {
   return o ? { allow: o.allow.bitfield.toString(), deny: o.deny.bitfield.toString() } : null;
 };
 
+// Everything needed to recreate a channel: settings, place in the list and permissions.
+// children: channels that stay after a category-only delete and should move back under it.
+const channelSnapshot = (c, children) => ({
+  id: c.id,
+  name: c.name,
+  type: c.type,
+  parentId: c.parentId ?? null,
+  position: c.rawPosition,
+  topic: c.topic ?? null,
+  nsfw: c.nsfw ?? false,
+  rateLimitPerUser: c.rateLimitPerUser ?? null,
+  bitrate: c.bitrate ?? null,
+  userLimit: c.userLimit ?? null,
+  overwrites: [...(c.permissionOverwrites?.cache.values() ?? [])]
+    .map((o) => ({ id: o.id, type: o.type, allow: o.allow.bitfield.toString(), deny: o.deny.bitfield.toString() })),
+  children,
+});
+
+// After a channel is recreated with a new ID, points the bot's saved settings (log channels,
+// stickies, schedules, other undo entries...) at the new channel.
+function remapId(guildId, oldId, newId) {
+  const tables = rawPrepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all().map((t) => t.name);
+  for (const table of tables) {
+    const columns = rawPrepare(`PRAGMA table_info(${table})`).all();
+    if (!columns.some((c) => c.name === 'guild_id')) continue;
+    for (const { name, type } of columns) {
+      if (type !== 'TEXT' || name === 'guild_id') continue;
+      rawPrepare(`UPDATE ${table} SET ${name} = REPLACE(${name}, ?, ?) WHERE guild_id = ? AND instr(${name}, ?) > 0`).run(oldId, newId, guildId, oldId);
+    }
+  }
+}
+
+async function recreateChannel(guild, s, ctx) {
+  // A parent category recreated earlier in this same undo has a new ID.
+  const parentId = ctx.ids[s.parentId] ?? s.parentId;
+  const created = await guild.channels.create({
+    name: s.name,
+    type: s.type,
+    parent: guild.channels.cache.has(parentId) ? parentId : null,
+    position: s.position,
+    topic: s.topic ?? undefined,
+    nsfw: s.nsfw,
+    rateLimitPerUser: s.rateLimitPerUser ?? undefined,
+    bitrate: s.bitrate ?? undefined,
+    userLimit: s.userLimit ?? undefined,
+    // Overwrites for roles deleted since then would make Discord reject the whole channel.
+    permissionOverwrites: s.overwrites
+      .filter((o) => o.type !== OverwriteType.Role || guild.roles.cache.has(o.id))
+      .map((o) => ({ id: o.id, type: o.type, allow: BigInt(o.allow), deny: BigInt(o.deny) })),
+    reason: 'Undo',
+  });
+  ctx.ids[s.id] = created.id;
+  remapId(guild.id, s.id, created.id);
+  for (const childId of s.children) {
+    await guild.channels.cache.get(childId)?.setParent(created.id, { lockPermissions: false, reason: 'Undo' }).catch(() => {});
+  }
+  return created;
+}
+
 const journal = {
   run,
   cannotUndo,
@@ -70,6 +129,8 @@ const journal = {
     ? { type: 'restoreAutomod', id: rule.id, previous }
     : { type: 'deleteAutomod', id: rule.id }),
   deletedAutomod: (rule) => record({ type: 'recreateAutomod', rule }),
+  // Call before deleting a channel or category. Undo recreates it (without its messages).
+  deletedChannel: (channel, children = []) => record({ type: 'recreateChannel', snapshot: channelSnapshot(channel, children) }),
   // Re-renders a message from the restored database once the undo is done.
   refresh: (kind, id) => record({ type: 'refresh', kind, id }),
 };
@@ -104,7 +165,7 @@ function undoRows(id) {
 }
 
 // Reverses one Discord step. Throws when Discord refuses; the caller reports it.
-async function undoStep(guild, step, refreshers) {
+async function undoStep(guild, step, ctx) {
   const channel = () => guild.channels.cache.get(step.channelId);
   const member = () => guild.members.fetch(step.userId);
   const reason = 'Undo';
@@ -135,7 +196,8 @@ async function undoStep(guild, step, refreshers) {
     case 'deleteAutomod': return guild.autoModerationRules.delete(step.id, reason);
     case 'restoreAutomod': return guild.autoModerationRules.edit(step.id, { ...step.previous, reason });
     case 'recreateAutomod': return guild.autoModerationRules.create({ ...step.rule, reason });
-    case 'refresh': return refreshers[step.kind]?.(guild, step.id);
+    case 'recreateChannel': return recreateChannel(guild, step.snapshot, ctx);
+    case 'refresh': return ctx.refreshers[step.kind]?.(guild, step.id);
     default: return null;
   }
 }
@@ -168,8 +230,9 @@ async function undo(guild, id, userId, refreshers = {}) {
   const steps = JSON.parse(e.steps);
   const failed = [];
   // Refresh steps were recorded first, so running in reverse leaves them for last.
+  const ctx = { refreshers, ids: {} };
   for (const step of [...steps].reverse()) {
-    await undoStep(guild, step, refreshers).catch((err) => failed.push(`${step.type}: ${err.message}`));
+    await undoStep(guild, step, ctx).catch((err) => failed.push(`${step.type}: ${err.message}`));
   }
   return { rows, steps: steps.filter((s) => s.type !== 'refresh').length, failed, notes: JSON.parse(e.notes) };
 }
