@@ -418,3 +418,43 @@ test('read-only commands leave no undo entry, and entries expire after 7 days', 
   assert.equal(journal.undoable('ro-g', now).length, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM undo_rows WHERE tx NOT IN (SELECT id FROM undo_log)').get().n, 0);
 });
+
+test('undoing a category delete recreates it first, puts its channels back and repoints settings', async () => {
+  const P = require('discord.js').ChannelType;
+  let nextId = 900;
+  const created = [];
+  const moved = [];
+  const guild = {
+    id: 'ch-g',
+    roles: { cache: new Map([['everyone', {}]]) },
+    channels: {
+      cache: new Map([['kept', { setParent: async (p) => moved.push(p) }]]),
+      create: async (opts) => {
+        const channel = { id: String(nextId++), ...opts };
+        created.push(channel);
+        guild.channels.cache.set(channel.id, channel);
+        return channel;
+      },
+    },
+  };
+  const overwrites = (list) => ({ cache: new Map(list.map((o) => [o.id, { ...o, allow: { bitfield: 1024n }, deny: { bitfield: 0n } }])) });
+  const category = { id: 'cat', name: 'Staff', type: P.GuildCategory, parentId: null, rawPosition: 3, permissionOverwrites: overwrites([{ id: 'everyone', type: 0 }, { id: 'gone-role', type: 0 }]) };
+  const logChannel = { id: 'log', name: 'mod-log', type: P.GuildText, parentId: 'cat', rawPosition: 1, topic: 'logs', rateLimitPerUser: 5, permissionOverwrites: overwrites([]) };
+  setSetting('ch-g', 'modlog_channel_id', 'log');
+
+  await journal.run(staff('ch-g', '/channel delete'), async () => {
+    journal.deletedChannel(logChannel);
+    journal.deletedChannel(category, ['kept']);
+    journal.cannotUndo('Messages in the deleted channels (undo recreates them empty)');
+  });
+  const result = await journal.undo(guild, journal.undoable('ch-g')[0].id, 'admin');
+
+  assert.deepEqual(result.failed, []);
+  assert.deepEqual(created.map((c) => c.name), ['Staff', 'mod-log']);
+  assert.equal(created[1].parent, created[0].id);
+  assert.equal(created[1].topic, 'logs');
+  assert.equal(created[1].rateLimitPerUser, 5);
+  assert.deepEqual(created[0].permissionOverwrites.map((o) => o.id), ['everyone']);
+  assert.deepEqual(moved, [created[0].id]);
+  assert.equal(getSettings('ch-g').modlog_channel_id, created[1].id);
+});
