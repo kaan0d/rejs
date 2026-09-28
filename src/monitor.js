@@ -1,5 +1,5 @@
 const { EmbedBuilder, Colors, ActivityType, escapeMarkdown } = require('discord.js');
-const { db } = require('./db');
+const { db, getSettings, getFeature } = require('./db');
 
 const POLL_MS = 10_000;
 const OFFLINE_AFTER_FAILURES = 3;
@@ -79,6 +79,7 @@ async function pollGuild(client, settings) {
       s.online = false;
       closeSessions(guildId, Date.now());
       await post(channel, Colors.Red, '🔴 Server is offline', 'Everyone was marked as left. I will post again when it is back.');
+      await renameCountChannel(client, guildId, s, '🔴 Server offline', true);
     }
     return;
   }
@@ -88,6 +89,8 @@ async function pollGuild(client, settings) {
   if (wasOffline) {
     await post(channel, Colors.Green, '🟢 Server is back online', `${data.info.clients}/${data.info.sv_maxclients} players`);
   }
+  recordCount(guildId, s, data.players.length);
+  await renameCountChannel(client, guildId, s, `🎮 Players: ${data.info.clients}/${data.info.sv_maxclients}`);
 
   // ponytail: sessions still open from before a bot restart count the downtime as playtime.
   const now = Date.now();
@@ -103,12 +106,71 @@ async function pollGuild(client, settings) {
 
   if (joined.length) {
     await post(channel, Colors.Green, `🟩 ${joined.length} joined`, listLines(joined.map(([, p]) => escapeMarkdown(p.name))));
+    await alertWatched(client, guildId, joined);
   }
   if (left.length) {
     await post(channel, Colors.Red, `🟥 ${left.length} left`,
       listLines(left.map((row) => `${escapeMarkdown(row.name)} · played ${formatDuration(now - row.joined_at)}`)));
   }
 }
+
+// Stores the player count every 5 minutes for the 24-hour chart; a week of history is kept.
+const HISTORY_EVERY_MS = 5 * 60_000;
+function recordCount(guildId, s, count, now = Date.now()) {
+  if (now - (s.lastRecorded ?? 0) < HISTORY_EVERY_MS) return;
+  s.lastRecorded = now;
+  db.prepare('INSERT INTO player_counts (guild_id, at, count) VALUES (?, ?, ?)').run(guildId, now, count);
+  db.prepare('DELETE FROM player_counts WHERE guild_id = ? AND at < ?').run(guildId, now - 7 * 86_400_000);
+}
+
+// Hourly peaks for the last 24 hours as a text sparkline, oldest first.
+function last24h(guildId, now = Date.now()) {
+  const HOUR = 3_600_000;
+  const rows = db.prepare('SELECT at, count FROM player_counts WHERE guild_id = ? AND at > ?').all(guildId, now - 24 * HOUR);
+  const buckets = Array(24).fill(null);
+  let peak = { count: 0, at: null };
+  for (const { at, count } of rows) {
+    const index = 23 - Math.floor((now - at) / HOUR);
+    buckets[index] = Math.max(buckets[index] ?? 0, count);
+    if (count >= peak.count) peak = { count, at };
+  }
+  const bars = '▁▂▃▄▅▆▇█';
+  const spark = buckets.map((v) => (v === null ? '·' : bars[peak.count ? Math.round((v / peak.count) * 7) : 0])).join('');
+  return { spark, peak, samples: rows.length };
+}
+
+// A voice channel whose name shows the live count. Discord allows 2 renames per 10 minutes.
+const RENAME_EVERY_MS = 5 * 60_000;
+async function renameCountChannel(client, guildId, s, name, force = false) {
+  const { countChannelId } = getFeature(guildId, 'fivem', {});
+  const channel = countChannelId && client.channels.cache.get(countChannelId);
+  if (!channel || channel.name === name) return;
+  if (!force && Date.now() - (s.lastRename ?? 0) < RENAME_EVERY_MS) return;
+  s.lastRename = Date.now();
+  await channel.setName(name, 'Player count').catch(() => {});
+}
+
+// Pings staff in the mod log when someone on the watchlist joins the game server.
+async function alertWatched(client, guildId, joined) {
+  const entries = db.prepare('SELECT * FROM watchlist WHERE guild_id = ?').all(guildId);
+  if (!entries.length) return;
+  const hits = [];
+  for (const [key, p] of joined) {
+    const ids = [p.name.toLowerCase(), key.toLowerCase(), discordIdOf(p)].filter(Boolean);
+    const entry = entries.find((e) => ids.includes(e.player.toLowerCase()));
+    if (entry) hits.push(`**${escapeMarkdown(p.name)}**${discordIdOf(p) ? ` (<@${discordIdOf(p)}>)` : ''}${entry.note ? ` · ${escapeMarkdown(entry.note)}` : ''}`);
+  }
+  if (!hits.length) return;
+  const modlog = client.channels.cache.get(getSettings(guildId).modlog_channel_id);
+  await modlog?.send({
+    content: '@here',
+    embeds: [new EmbedBuilder().setColor(Colors.Orange).setTitle('👀 Watched player joined the game server').setDescription(hits.join('\n')).setTimestamp()],
+    allowedMentions: { parse: ['everyone'] },
+  }).catch(() => {});
+}
+
+// Watchlist entries match an in-game name, a license identifier or a Discord user.
+const watchKey = (text) => (text.match(/^<@!?(\d+)>$/)?.[1] ?? text).trim();
 
 let lastPresence;
 function updatePresence(client, monitored) {
@@ -139,4 +201,5 @@ function resetGuild(guildId) {
 
 module.exports = {
   start: poll, resetGuild, fetchServer, normalizeServerUrl, formatDuration, listLines, playerKey, openSessions,
+  recordCount, last24h, watchKey,
 };

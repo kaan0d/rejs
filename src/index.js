@@ -12,18 +12,30 @@ const antispam = require('./antispam');
 const tickets = require('./tickets');
 const reports = require('./reports');
 const community = require('./community');
+const automation = require('./automation');
+const giveaways = require('./giveaways');
+const tempvoice = require('./tempvoice');
 const mod = require('./moderation');
 const updater = require('./updater');
 
+// Command files and the /help category each one belongs to.
+const FILES = {
+  general: '👋 General', info: '👋 General', utility: '👋 General',
+  moderation: '🔨 Moderation', cases: '🔨 Moderation', staff: '🔨 Moderation', bulk: '🔨 Moderation',
+  protection: '🛡️ Protection', logs: '📜 Logs',
+  support: '🎫 Support', community: '🎉 Community', events: '🎉 Community',
+  automation: '⚙️ Automation', server: '🎮 Game server', admin: '🔧 Setup', owner: '👑 Owner',
+};
 const commands = new Map(
-  ['general', 'info', 'moderation', 'cases', 'staff', 'bulk', 'protection', 'support', 'community', 'logs', 'automation', 'server', 'admin', 'owner']
-    .flatMap((file) => require(`./commands/${file}`))
+  Object.entries(FILES)
+    .flatMap(([file, category]) => require(`./commands/${file}`).map((command) => ({ ...command, category })))
     .map((command) => [command.data.name, command]),
 );
 
 // Buttons and forms that must keep working after a restart, keyed by the custom ID prefix.
 const components = {
   ...appeals.handlers, ...gate.handlers, ...antiraid.handlers, ...tickets.handlers, ...reports.handlers, ...community.handlers,
+  ...giveaways.handlers,
 };
 
 // Asks Discord which privileged intents are turned on, so a missing Message Content intent
@@ -44,6 +56,8 @@ async function checkIntents(token) {
 
 async function handleInteraction(interaction) {
   if (interaction.isAutocomplete()) {
+    const command = commands.get(interaction.commandName);
+    if (command?.autocomplete) return command.autocomplete(interaction);
     const focused = interaction.options.getFocused(true);
     return interaction.respond(focused.name === 'reason' ? mod.reasonChoices(interaction.guildId, focused.value) : []);
   }
@@ -95,6 +109,7 @@ async function main() {
     console.log(`${c.user.tag} is online in ${c.guilds.cache.size} servers with ${commands.size} commands.`);
     monitor.start(c);
     scheduler.start(c);
+    tempvoice.cleanup(c).catch((e) => console.error('Temp voice cleanup:', e));
     updater.start(c);
   });
 
@@ -109,7 +124,7 @@ async function main() {
     }
   });
 
-  for (const feature of [logs, gate, antiraid, antinuke, antispam, tickets, community]) feature.register(client);
+  for (const feature of [logs, gate, antiraid, antinuke, antispam, tickets, community, automation, tempvoice]) feature.register(client);
   await client.login(token);
 }
 

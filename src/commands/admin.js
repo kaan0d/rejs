@@ -29,12 +29,16 @@ async function configure(i) {
     monitor.resetGuild(i.guildId);
     setSetting(i.guildId, 'server_url', url);
     setSetting(i.guildId, 'monitor_channel_id', channel.id);
-    return i.editReply(`✅ Watching \`${url}\` (${info.clients}/${info.sv_maxclients} players). Joins and leaves go to ${channel}.`);
+    const countChannel = i.options.getChannel('count_channel');
+    if (countChannel) setFeature(i.guildId, 'fivem', { countChannelId: countChannel.id });
+    const countNote = countChannel ? ` ${countChannel} will show the player count (updated every 5 minutes at most, a Discord limit).` : '';
+    return i.editReply(`✅ Watching \`${url}\` (${info.clients}/${info.sv_maxclients} players). Joins and leaves go to ${channel}.${countNote}`);
   }
 
   if (sub === 'monitor-off') {
     monitor.resetGuild(i.guildId);
     setSetting(i.guildId, 'server_url', null);
+    setFeature(i.guildId, 'fivem', {});
     return i.reply(ephemeral('✅ Server monitoring is off. Playtime history is kept.'));
   }
 
@@ -135,7 +139,8 @@ module.exports = [
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .addSubcommand((s) => s.setName('monitor').setDescription('Watch a FiveM server and post joins and leaves')
         .addStringOption((o) => o.setName('address').setDescription('IP:port or URL, e.g. 1.2.3.4:30120').setRequired(true))
-        .addChannelOption((o) => o.setName('channel').setDescription('Where to post updates').addChannelTypes(...TEXT_CHANNELS).setRequired(true)))
+        .addChannelOption((o) => o.setName('channel').setDescription('Where to post updates').addChannelTypes(...TEXT_CHANNELS).setRequired(true))
+        .addChannelOption((o) => o.setName('count_channel').setDescription('Voice channel renamed to show the player count').addChannelTypes(ChannelType.GuildVoice)))
       .addSubcommand((s) => s.setName('monitor-off').setDescription('Stop watching the game server'))
       .addSubcommand((s) => s.setName('modlog').setDescription('Where to log moderation actions and AutoMod alerts')
         .addChannelOption((o) => o.setName('channel').setDescription('Leave empty to turn the log off').addChannelTypes(...TEXT_CHANNELS)))

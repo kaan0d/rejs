@@ -136,6 +136,81 @@ db.exec(`
     PRIMARY KEY (suggestion_id, user_id)
   );
 
+  CREATE TABLE IF NOT EXISTS responders (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    trigger TEXT NOT NULL,
+    response TEXT NOT NULL,
+    channels TEXT NOT NULL DEFAULT '[]'
+  );
+
+  CREATE TABLE IF NOT EXISTS tags (
+    guild_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    uses INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (guild_id, name)
+  );
+
+  CREATE TABLE IF NOT EXISTS stickies (
+    channel_id TEXT PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    message_id TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    guild_id TEXT,
+    channel_id TEXT,
+    text TEXT NOT NULL,
+    due_at INTEGER NOT NULL,
+    dm INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS giveaways (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    message_id TEXT,
+    host_id TEXT NOT NULL,
+    prize TEXT NOT NULL,
+    winners INTEGER NOT NULL,
+    ends_at INTEGER NOT NULL,
+    required_role TEXT,
+    min_age_ms INTEGER,
+    ended INTEGER NOT NULL DEFAULT 0,
+    winner_ids TEXT NOT NULL DEFAULT '[]'
+  );
+
+  CREATE TABLE IF NOT EXISTS giveaway_entries (
+    giveaway_id INTEGER NOT NULL,
+    user_id TEXT NOT NULL,
+    PRIMARY KEY (giveaway_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS temp_voice (
+    channel_id TEXT PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    owner_id TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS player_counts (
+    guild_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    count INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS player_counts_by_time ON player_counts (guild_id, at);
+
+  CREATE TABLE IF NOT EXISTS watchlist (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    player TEXT NOT NULL,
+    note TEXT,
+    added_by TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS schedules (
     id INTEGER PRIMARY KEY,
     guild_id TEXT NOT NULL,
