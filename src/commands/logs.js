@@ -22,7 +22,7 @@ async function logs(i) {
     }
     setSetting(i.guildId, COLUMNS[type], channel?.id ?? null);
     const note = type === 'messages' && channel && !i.client.hasMessageContent
-      ? '\n⚠️ The Message Content intent is off, so deleted messages will show without their text and edits are not logged.'
+      ? '\nThe Message Content intent is off, so deleted messages will show without their text and edits are not logged.'
       : '';
     return i.reply(ephemeral(channel ? `✅ ${type[0].toUpperCase()}${type.slice(1)} logs go to ${channel}.${note}` : `✅ ${type} logs are off.`));
   }
@@ -46,7 +46,7 @@ async function logs(i) {
     flags: MessageFlags.Ephemeral,
     embeds: [new EmbedBuilder()
       .setColor(BRAND)
-      .setTitle('📜 Logs')
+      .setTitle('Logs')
       .addFields(
         ...TYPES.map((t) => ({ name: t.name, value: settings[COLUMNS[t.value]] ? `<#${settings[COLUMNS[t.value]]}>` : 'Off' })),
         { name: 'Ignored', value: ignores.map(mention).join(' ') || 'Nothing' },

@@ -21,7 +21,7 @@ module.exports = [
     owner: true,
     data: command('restart', 'Restart the bot (owner only)'),
     async execute(i) {
-      await reply(i, '🔄 Restarting…');
+      await reply(i, 'Restarting…');
       updater.restart();
     },
   },
@@ -35,7 +35,7 @@ module.exports = [
         const next = await updater.checkForUpdate();
         if (!next) return reply(i, `✅ Already up to date. Auto-restart on push is **${updater.autoRestart() ? 'on' : 'off'}**.`);
         const commit = await updater.update();
-        await reply(i, `🔄 Updated to \`${commit}\`. Restarting…`);
+        await reply(i, `Updated to \`${commit}\`. Restarting…`);
         updater.restart();
       } catch (e) {
         await reply(i, `❌ Update failed: ${e.message}`);
@@ -56,7 +56,7 @@ module.exports = [
         flags: MessageFlags.Ephemeral,
         embeds: [new EmbedBuilder()
           .setColor(BRAND)
-          .setTitle('📊 Bot stats')
+          .setTitle('Bot stats')
           .addFields(
             { name: 'Servers', value: `${guilds.size}`, inline: true },
             { name: 'Members', value: `${members.toLocaleString('en')}`, inline: true },
@@ -106,7 +106,7 @@ module.exports = [
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       const embed = new EmbedBuilder()
         .setColor(BRAND)
-        .setAuthor({ name: `📢 ${i.client.user.username} update`, iconURL: i.client.user.displayAvatarURL() })
+        .setAuthor({ name: `${i.client.user.username} update`, iconURL: i.client.user.displayAvatarURL() })
         .setDescription(i.options.getString('message', true).replaceAll('\\n', '\n'))
         .setTimestamp();
       let sent = 0;
@@ -115,7 +115,7 @@ module.exports = [
         const channel = guild.channels.cache.get(getSettings(guild.id).modlog_channel_id);
         if (await channel?.send({ embeds: [embed] }).then(() => true, () => false)) sent++;
       }
-      await reply(i, `📢 Sent to ${sent} of ${i.client.guilds.cache.size} servers (the rest have no mod log).`);
+      await reply(i, `Sent to ${sent} of ${i.client.guilds.cache.size} servers (the rest have no mod log).`);
     },
   },
 
@@ -126,7 +126,7 @@ module.exports = [
       const result = backup.backup(new Date(), { force: true });
       if (!result) return reply(i, 'Backups are off while the database lives in memory.');
       const size = (result.size / 1048576).toFixed(1);
-      return reply(i, `💾 Saved \`${result.file}\` (${size} MB). ${backup.list().length} backups are kept in \`${backup.dir()}\`.`);
+      return reply(i, `Saved \`${result.file}\` (${size} MB). ${backup.list().length} backups are kept in \`${backup.dir()}\`.`);
     },
   },
 ];

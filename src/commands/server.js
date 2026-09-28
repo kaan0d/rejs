@@ -14,7 +14,7 @@ async function watchlist(i) {
     const player = monitor.watchKey(i.options.getString('player', true));
     db.prepare('INSERT INTO watchlist (guild_id, player, note, added_by) VALUES (?, ?, ?, ?)')
       .run(i.guildId, player, i.options.getString('note'), i.user.id);
-    return i.reply(ephemeral(`👀 Watching \`${player}\`. Staff get pinged in the mod log when they join the game server.`));
+    return i.reply(ephemeral(`Watching \`${player}\`. Staff get pinged in the mod log when they join the game server.`));
   }
   if (sub === 'remove') {
     const id = i.options.getInteger('id', true);
@@ -57,7 +57,7 @@ module.exports = [
         const history = monitor.last24h(i.guildId);
         const embed = new EmbedBuilder()
           .setColor(Colors.Green)
-          .setTitle(`🟢 ${cleanHostname(info.hostname)}`)
+          .setTitle(`${cleanHostname(info.hostname)}`)
           .addFields(
             { name: 'Players', value: `${info.clients}/${info.sv_maxclients}`, inline: true },
             { name: 'Average ping', value: `${avgPing} ms`, inline: true },
@@ -74,7 +74,7 @@ module.exports = [
         await i.editReply({ embeds: [embed] });
       } catch {
         await i.editReply({
-          embeds: [new EmbedBuilder().setColor(Colors.Red).setTitle('🔴 Server is offline').setDescription("I couldn't reach it just now.")],
+          embeds: [new EmbedBuilder().setColor(Colors.Red).setTitle('Server is offline').setDescription("I couldn't reach it just now.")],
         });
       }
     },
@@ -94,12 +94,12 @@ module.exports = [
 
       let title, rows, line;
       if (i.options.getString('show') === 'recent') {
-        title = '🕓 Recently left';
+        title = 'Recently left';
         rows = db.prepare('SELECT * FROM sessions WHERE guild_id = ? AND left_at IS NOT NULL ORDER BY left_at DESC LIMIT 25').all(i.guildId);
         line = (row) => `${escapeMarkdown(row.name)}${discord(row)} · left <t:${unix(row.left_at)}:R> · played ${monitor.formatDuration(row.left_at - row.joined_at)}`;
       } else {
         rows = monitor.openSessions(i.guildId);
-        title = `🎮 ${rows.length} online`;
+        title = `${rows.length} online`;
         line = (row) => `${escapeMarkdown(row.name)}${discord(row)} · ${monitor.formatDuration(now - row.joined_at)}`;
       }
 
@@ -133,7 +133,7 @@ module.exports = [
       await i.reply({
         embeds: [new EmbedBuilder()
           .setColor(BRAND)
-          .setTitle(search ? `⏱️ Playtime matching "${escapeMarkdown(search)}"` : '⏱️ Top playtime')
+          .setTitle(search ? `Playtime matching "${escapeMarkdown(search)}"` : 'Top playtime')
           .setDescription(lines.join('\n') || 'No sessions recorded yet.')],
       });
     },

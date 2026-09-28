@@ -35,7 +35,7 @@ async function warnings(i) {
   if (sub === 'clear') {
     const { changes } = db.prepare("UPDATE cases SET active = 0 WHERE guild_id = ? AND user_id = ? AND action = 'warn' AND active = 1")
       .run(i.guildId, user.id);
-    await mod.modLog(i.guild, { title: '🧽 Warnings cleared', color: Colors.Grey, target: user, moderator: i.user, extra: `**Cleared:** ${changes}` });
+    await mod.modLog(i.guild, { title: 'Warnings cleared', color: Colors.Grey, target: user, moderator: i.user, extra: `**Cleared:** ${changes}` });
     return i.reply(ephemeral(`✅ Cleared ${changes} warning${changes === 1 ? '' : 's'} for ${user}.`));
   }
 
@@ -73,7 +73,7 @@ async function ban(i) {
   // DM first: once banned, they no longer share a server with the bot.
   if (member) {
     const until = expiresAt ? ` until <t:${unix(expiresAt)}:f>` : '';
-    await mod.notify(user, { content: `🔨 You were banned from **${i.guild.name}**${until}: ${reason}`, components: appealRow(i.guildId) });
+    await mod.notify(user, { content: `You were banned from **${i.guild.name}**${until}: ${reason}`, components: appealRow(i.guildId) });
   }
   mod.closeBans(i.guildId, user.id);
   await i.guild.bans.create(user.id, {
@@ -83,7 +83,7 @@ async function ban(i) {
   journal.banned(user.id);
   if (i.options.getInteger('delete_messages')) journal.cannotUndo('Deleted messages');
   const number = await mod.recordCase(i.guild, { action: 'ban', user, moderator: i.user, reason, durationMs, expiresAt });
-  await i.reply(`🔨 Banned **${user.tag}**${expiresAt ? ` until <t:${unix(expiresAt)}:f>` : ''}. (case #${number})`);
+  await i.reply(`Banned **${user.tag}**${expiresAt ? ` until <t:${unix(expiresAt)}:f>` : ''}. (case #${number})`);
 }
 
 async function setLock(i, locked) {
@@ -91,8 +91,8 @@ async function setLock(i, locked) {
   journal.overwrite(channel, i.guild.roles.everyone.id);
   await channel.permissionOverwrites.edit(i.guild.roles.everyone, { SendMessages: locked ? false : null },
     { reason: mod.auditReason(i.member, locked ? 'Lock' : 'Unlock') });
-  await mod.modLog(i.guild, { title: locked ? '🔒 Channel locked' : '🔓 Channel unlocked', color: Colors.Grey, moderator: i.user, extra: `**Channel:** ${channel}` });
-  return i.reply(locked ? `🔒 ${channel} is locked. Only staff can talk here.` : `🔓 ${channel} is unlocked.`);
+  await mod.modLog(i.guild, { title: locked ? 'Channel locked' : 'Channel unlocked', color: Colors.Grey, moderator: i.user, extra: `**Channel:** ${channel}` });
+  return i.reply(locked ? `${channel} is locked. Only staff can talk here.` : `${channel} is unlocked.`);
 }
 
 module.exports = [
@@ -138,9 +138,9 @@ module.exports = [
       const reason = reasonOf(i);
       journal.timeout(member);
       await member.timeout(ms, mod.auditReason(i.member, reason));
-      await mod.notify(member.user, `🔇 You were timed out in **${i.guild.name}** for ${formatDuration(ms)}: ${reason}`);
+      await mod.notify(member.user, `You were timed out in **${i.guild.name}** for ${formatDuration(ms)}: ${reason}`);
       const number = await mod.recordCase(i.guild, { action: 'timeout', user: member.user, moderator: i.user, reason, durationMs: ms });
-      await i.reply(`🔇 ${member} is timed out until <t:${unix(Date.now() + ms)}:t>. (case #${number})`);
+      await i.reply(`${member} is timed out until <t:${unix(Date.now() + ms)}:t>. (case #${number})`);
     },
   },
 
@@ -157,7 +157,7 @@ module.exports = [
       journal.timeout(member);
       await member.timeout(null, mod.auditReason(i.member, reason));
       const number = await mod.recordCase(i.guild, { action: 'untimeout', user: member.user, moderator: i.user, reason });
-      await i.reply(`🔊 ${member} can talk again. (case #${number})`);
+      await i.reply(`${member} can talk again. (case #${number})`);
     },
   },
 
@@ -170,11 +170,11 @@ module.exports = [
       const error = mod.checkTarget(i.member, member, 'kick');
       if (error) return i.reply(ephemeral(error));
       const reason = reasonOf(i);
-      await mod.notify(member.user, `👢 You were kicked from **${i.guild.name}**: ${reason}`);
+      await mod.notify(member.user, `You were kicked from **${i.guild.name}**: ${reason}`);
       journal.cannotUndo('Kick (they have to rejoin themselves)');
       await member.kick(mod.auditReason(i.member, reason));
       const number = await mod.recordCase(i.guild, { action: 'kick', user: member.user, moderator: i.user, reason });
-      await i.reply(`👢 Kicked **${member.user.tag}**. (case #${number})`);
+      await i.reply(`Kicked **${member.user.tag}**. (case #${number})`);
     },
   },
 
@@ -197,7 +197,7 @@ module.exports = [
       const error = mod.checkTarget(i.member, member, 'ban');
       if (error) return i.reply(ephemeral(error));
       const reason = reasonOf(i);
-      await mod.notify(member.user, `🧹 You were removed from **${i.guild.name}** and your recent messages were deleted: ${reason}. You can rejoin.`);
+      await mod.notify(member.user, `You were removed from **${i.guild.name}** and your recent messages were deleted: ${reason}. You can rejoin.`);
       journal.cannotUndo('Softban (deleted messages; they have to rejoin themselves)');
       await i.guild.bans.create(member.id, {
         reason: mod.auditReason(i.member, `Softban: ${reason}`),
@@ -205,7 +205,7 @@ module.exports = [
       });
       await i.guild.bans.remove(member.id, mod.auditReason(i.member, 'Softban'));
       const number = await mod.recordCase(i.guild, { action: 'softban', user: member.user, moderator: i.user, reason });
-      await i.reply(`🧹 Softbanned **${member.user.tag}**. Their messages are gone and they can rejoin. (case #${number})`);
+      await i.reply(`Softbanned **${member.user.tag}**. Their messages are gone and they can rejoin. (case #${number})`);
     },
   },
 
@@ -222,7 +222,7 @@ module.exports = [
       journal.unbanned(user.id);
       mod.closeBans(i.guildId, user.id);
       const number = await mod.recordCase(i.guild, { action: 'unban', user, moderator: i.user, reason });
-      await i.reply(`🕊️ Unbanned **${user.tag}**. (case #${number})`);
+      await i.reply(`Unbanned **${user.tag}**. (case #${number})`);
     },
   },
 
@@ -247,7 +247,7 @@ module.exports = [
       if (ms === null || ms > 6 * 3_600_000) return i.reply(ephemeral('Use a delay like `5s`, `1m` or `2h`, up to 6 hours, or `0` to turn it off.'));
       journal.channelField(channel, 'rateLimitPerUser');
       await channel.setRateLimitPerUser(Math.round(ms / 1000), mod.auditReason(i.member, 'Slowmode'));
-      await i.reply(ms ? `🐢 Slowmode in ${channel}: one message every ${Math.round(ms / 1000)}s.` : `🐇 Slowmode is off in ${channel}.`);
+      await i.reply(ms ? `Slowmode in ${channel}: one message every ${Math.round(ms / 1000)}s.` : `Slowmode is off in ${channel}.`);
     },
   },
 ];

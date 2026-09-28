@@ -108,6 +108,40 @@ async function recreateChannel(guild, s, ctx = { ids: {} }) {
   return created;
 }
 
+const roleSnapshot = (role) => ({
+  id: role.id,
+  name: role.name,
+  color: role.color,
+  hoist: role.hoist,
+  mentionable: role.mentionable,
+  permissions: role.permissions.bitfield.toString(),
+  position: role.position,
+  members: [...role.members.keys()],
+  overwrites: [...role.guild.channels.cache.values()]
+    .filter((c) => c.permissionOverwrites?.cache.has(role.id))
+    .map((c) => ({ channelId: c.id, ...overwriteOf(c, role.id) })),
+});
+
+async function recreateRole(guild, s, ctx = { ids: {} }) {
+  const reason = ctx.reason ?? 'Undo';
+  const me = guild.members.me;
+  // Discord refuses roles with permissions the bot itself doesn't have.
+  const permissions = me.permissions.has('Administrator') ? BigInt(s.permissions) : BigInt(s.permissions) & me.permissions.bitfield;
+  const role = await guild.roles.create({ name: s.name, color: s.color, hoist: s.hoist, mentionable: s.mentionable, permissions, reason });
+  await role.setPosition(Math.min(s.position, me.roles.highest.position - 1)).catch(() => {});
+  ctx.ids[s.id] = role.id;
+  remapId(guild.id, s.id, role.id);
+  for (const o of s.overwrites) {
+    const channel = guild.channels.cache.get(ctx.ids[o.channelId] ?? o.channelId);
+    await channel?.permissionOverwrites.create(role.id, bitsToOptions(o), { reason, type: OverwriteType.Role }).catch(() => {});
+  }
+  for (const id of s.members) {
+    const member = await guild.members.fetch(id).catch(() => null);
+    await member?.roles.add(role.id, reason).catch(() => {});
+  }
+  return role;
+}
+
 const journal = {
   run,
   cannotUndo,
@@ -134,6 +168,9 @@ const journal = {
   deletedAutomod: (rule) => record({ type: 'recreateAutomod', rule }),
   // Call before deleting a channel or category. Undo recreates it (without its messages).
   deletedChannel: (channel, children = []) => record({ type: 'recreateChannel', snapshot: channelSnapshot(channel, children) }),
+  // Call before deleting a role. Undo recreates it, gives it back to its members and restores
+  // its permission overwrites on every channel.
+  deletedRole: (role) => record({ type: 'recreateRole', snapshot: roleSnapshot(role) }),
   // Re-renders a message from the restored database once the undo is done.
   refresh: (kind, id) => record({ type: 'refresh', kind, id }),
 };
@@ -200,6 +237,7 @@ async function undoStep(guild, step, ctx) {
     case 'restoreAutomod': return guild.autoModerationRules.edit(step.id, { ...step.previous, reason });
     case 'recreateAutomod': return guild.autoModerationRules.create({ ...step.rule, reason });
     case 'recreateChannel': return recreateChannel(guild, step.snapshot, ctx);
+    case 'recreateRole': return recreateRole(guild, step.snapshot, ctx);
     case 'refresh': return ctx.refreshers[step.kind]?.(guild, step.id);
     default: return null;
   }

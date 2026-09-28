@@ -13,12 +13,12 @@ async function snapshotCommand(i) {
   if (i.options.getSubcommand() === 'take') {
     await i.deferReply({ flags: MessageFlags.Ephemeral });
     const s = await snapshots.take(i.guild);
-    return i.editReply(`📸 Snapshot #${s.id} saved: ${s.roles} roles and ${s.channels} channels. The last ${snapshots.KEEP} are kept.`);
+    return i.editReply(`Snapshot #${s.id} saved: ${s.roles} roles and ${s.channels} channels. The last ${snapshots.KEEP} are kept.`);
   }
   const rows = snapshots.list(i.guildId);
   return i.reply({
     flags: MessageFlags.Ephemeral,
-    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('📸 Server snapshots')
+    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('Server snapshots')
       .setDescription(rows.map((s) => `\`#${s.id}\` <t:${unix(s.taken_at)}:f> (<t:${unix(s.taken_at)}:R>) · ${s.data.roles.length} roles, ${s.data.channels.length} channels`).join('\n')
         || 'None yet. The bot takes one every day; `/snapshot take` takes one now.')],
   });
@@ -38,7 +38,7 @@ async function restoreCommand(i) {
   lines.push('', 'They will be recreated with their settings and permissions, and members get the recreated roles back. Messages in deleted channels are gone for good. Changed (not deleted) things are left alone.');
 
   const response = await i.reply({
-    embeds: [new EmbedBuilder().setColor(Colors.Orange).setTitle('🛟 Restore from snapshot?').setDescription(lines.join('\n'))],
+    embeds: [new EmbedBuilder().setColor(Colors.Orange).setTitle('Restore from snapshot?').setDescription(lines.join('\n'))],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('restore').setLabel('Restore').setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
@@ -49,12 +49,12 @@ async function restoreCommand(i) {
   if (choice?.customId !== 'restore') {
     return choice ? choice.update({ content: 'Cancelled.', embeds: [], components: [] }) : i.editReply({ content: 'Timed out.', embeds: [], components: [] });
   }
-  await choice.update({ content: '⏳ Restoring…', embeds: [], components: [] });
+  await choice.update({ content: 'Restoring…', embeds: [], components: [] });
 
-  const result = await snapshots.restore(i.guild, snapshot, (text) => i.editReply(`⏳ ${text}`).catch(() => {}));
+  const result = await snapshots.restore(i.guild, snapshot, (text) => i.editReply(`${text}`).catch(() => {}));
   const summary = `Recreated ${result.roles} roles and ${result.channels} channels, gave ${result.members} roles back to members, moved ${result.moved} channels back into categories.`;
-  await mod.modLog(i.guild, { title: '🛟 Restored from snapshot', color: Colors.Green, moderator: i.user, extra: `Snapshot #${snapshot.id}. ${summary}` });
-  const failed = result.failed.length ? `\n⚠️ ${result.failed.length} failed:\n${result.failed.slice(0, 10).map((f) => `• ${f}`).join('\n')}` : '';
+  await mod.modLog(i.guild, { title: 'Restored from snapshot', color: Colors.Green, moderator: i.user, extra: `Snapshot #${snapshot.id}. ${summary}` });
+  const failed = result.failed.length ? `\n${result.failed.length} failed:\n${result.failed.slice(0, 10).map((f) => `• ${f}`).join('\n')}` : '';
   await i.editReply(`✅ ${summary}${failed}\n\`/undo\` removes everything this restore created.`).catch(() => {});
 }
 

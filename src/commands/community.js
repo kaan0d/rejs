@@ -36,7 +36,7 @@ async function rolemenu(i) {
     if (i.user.id !== i.guild.ownerId && role.position >= i.member.roles.highest.position) return i.reply(ephemeral(`${role} is equal to or above your highest role.`));
     if (menu.roles.length >= 25) return i.reply(ephemeral('A menu holds up to 25 roles.'));
     const emoji = i.options.getString('emoji');
-    if (emoji && !toEmoji(emoji)) return i.reply(ephemeral('That emoji won\'t work in a menu. Use a normal emoji like 🇪🇺, or a server emoji picked from the emoji menu.'));
+    if (emoji && !toEmoji(emoji)) return i.reply(ephemeral('That emoji won\'t work in a menu. Use a normal emoji like , or a server emoji picked from the emoji menu.'));
     menu.roles = menu.roles.filter((r) => r.roleId !== role.id);
     menu.roles.push({ roleId: role.id, emoji: i.options.getString('emoji'), description: i.options.getString('description') });
   } else {
@@ -83,7 +83,7 @@ async function welcome(i) {
     flags: MessageFlags.Ephemeral,
     embeds: [new EmbedBuilder()
       .setColor(BRAND)
-      .setTitle('👋 Welcome settings')
+      .setTitle('Welcome settings')
       .setDescription('Variables: `{user}` `{username}` `{server}` `{count}`. Write `\\n` for a new line.')
       .addFields(
         { name: `Welcome ${cfg.enabled ? `in <#${cfg.channelId}>` : '(off)'}${cfg.embed ? ' · embed' : ''}`, value: preview(cfg.message) },

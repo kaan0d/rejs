@@ -68,7 +68,7 @@ async function reportError(client, context, error) {
   recentErrors.set(key, Date.now());
   if (!client?.isReady()) return;
 
-  const embed = new EmbedBuilder().setColor(Colors.Red).setTitle(`💥 ${context}`.slice(0, 256)).setDescription(`\`\`\`\n${text}\n\`\`\``).setTimestamp();
+  const embed = new EmbedBuilder().setColor(Colors.Red).setTitle(`${context}`.slice(0, 256)).setDescription(`\`\`\`\n${text}\n\`\`\``).setTimestamp();
   const channel = process.env.ERROR_CHANNEL_ID && client.channels.cache.get(process.env.ERROR_CHANNEL_ID);
   if (channel) await channel.send({ embeds: [embed] }).catch(() => {});
   else await client.notifyOwner?.({ embeds: [embed] });

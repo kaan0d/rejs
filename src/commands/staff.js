@@ -30,7 +30,7 @@ async function roleCommand(i) {
   await (give ? member.roles.add(role, mod.auditReason(i.member, reason)) : member.roles.remove(role, mod.auditReason(i.member, reason)));
   journal.memberRole(member, role.id, give);
   await mod.modLog(i.guild, {
-    title: give ? '➕ Role given' : '➖ Role taken', color: BRAND, target: member.user, moderator: i.user, reason, extra: `**Role:** ${role}`,
+    title: give ? 'Role given' : 'Role taken', color: BRAND, target: member.user, moderator: i.user, reason, extra: `**Role:** ${role}`,
   });
   await i.reply(ephemeral(`✅ ${give ? 'Gave' : 'Took'} ${role} ${give ? 'to' : 'from'} ${member}.`));
 }
@@ -55,14 +55,14 @@ async function decancerCommand(i) {
   const preview = targets.first(5).map((m) => `${m.displayName} → ${mod.decancer(m.displayName)}`).join('\n');
   const button = await confirm(i, `Rename **${targets.size}** members? For example:\n${preview}`, `Rename ${targets.size}`);
   if (!button) return;
-  await button.update({ content: `⏳ Renaming ${targets.size} members…`, components: [] });
+  await button.update({ content: `Renaming ${targets.size} members…`, components: [] });
 
   let done = 0;
   for (const m of targets.values()) {
     journal.nickname(m);
     if (await m.setNickname(mod.decancer(m.displayName), mod.auditReason(i.member, 'Decancer')).then(() => true, () => false)) done++;
   }
-  await mod.modLog(i.guild, { title: '🧼 Names cleaned', color: BRAND, moderator: i.user, extra: `**Renamed:** ${done} members` });
+  await mod.modLog(i.guild, { title: 'Names cleaned', color: BRAND, moderator: i.user, extra: `**Renamed:** ${done} members` });
   await i.editReply(`✅ Renamed ${done} of ${targets.size} members.`);
 }
 

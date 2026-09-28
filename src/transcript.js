@@ -21,7 +21,7 @@ function messageHtml(m) {
     const body = [e.title && `<b>${escape(e.title)}</b>`, e.description && format(e.description)].filter(Boolean).join('<br>');
     if (body) parts.push(`<div class="embed">${body}</div>`);
   }
-  for (const a of m.attachments.values()) parts.push(`<div class="file">📎 <a href="${escape(a.url)}">${escape(a.name)}</a></div>`);
+  for (const a of m.attachments.values()) parts.push(`<div class="file"><a href="${escape(a.url)}">${escape(a.name)}</a></div>`);
   return `<div class="msg">
   <img class="avatar" src="${escape(m.author.displayAvatarURL({ size: 64 }))}" alt="">
   <div><div class="head"><span class="name${m.author.bot ? ' bot' : ''}">${escape(m.author.displayName ?? m.author.username)}</span>

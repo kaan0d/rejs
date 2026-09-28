@@ -116,7 +116,7 @@ async function configure(i) {
     flags: MessageFlags.Ephemeral,
     embeds: [new EmbedBuilder()
       .setColor(BRAND)
-      .setTitle('⚙️ Settings')
+      .setTitle('Settings')
       .addFields(
         { name: 'Game server', value: settings.server_url ? `\`${settings.server_url}\` → <#${settings.monitor_channel_id}>` : 'Off' },
         { name: 'Mod log', value: settings.modlog_channel_id ? `<#${settings.modlog_channel_id}>` : 'Off', inline: true },
@@ -193,7 +193,7 @@ module.exports = [
         // Discord can't bulk delete messages older than 14 days; those are skipped.
         journal.cannotUndo('Deleted messages');
         const deleted = await i.channel.bulkDelete(target, true);
-        await i.editReply(`🧹 Deleted ${deleted.size} message${deleted.size === 1 ? '' : 's'}.`);
+        await i.editReply(`Deleted ${deleted.size} message${deleted.size === 1 ? '' : 's'}.`);
       } catch (e) {
         await i.editReply(`❌ Couldn't delete messages: ${e.message}`);
       }

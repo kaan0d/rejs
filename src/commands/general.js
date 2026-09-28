@@ -27,7 +27,7 @@ module.exports = [
   {
     data: new SlashCommandBuilder().setName('ping').setDescription('Check that the bot is responsive'),
     async execute(i) {
-      await i.reply({ content: `🏓 Pong! ${i.client.ws.ping} ms`, flags: MessageFlags.Ephemeral });
+      await i.reply({ content: `Pong! ${i.client.ws.ping} ms`, flags: MessageFlags.Ephemeral });
     },
   },
 

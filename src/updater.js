@@ -39,7 +39,7 @@ function start(client) {
       if (!(await checkForUpdate())) return;
       const commit = await update();
       console.log(`Updated to ${commit}. Restarting.`);
-      await client.notifyOwner(`🔄 New push, updated to \`${commit}\`. Restarting.`);
+      await client.notifyOwner(`New push, updated to \`${commit}\`. Restarting.`);
       restart();
     } catch (e) {
       // A failed pull (for example local edits on the server) must not take the bot down.

@@ -24,7 +24,7 @@ module.exports = [
     async execute(i) {
       const user = await (i.options.getUser('user') ?? i.user).fetch();
       const member = i.options.getMember('user') ?? (i.options.getUser('user') ? null : i.member);
-      const young = Date.now() - user.createdTimestamp < NEW_ACCOUNT_MS ? ' 🆕' : '';
+      const young = Date.now() - user.createdTimestamp < NEW_ACCOUNT_MS ? ' ' : '';
 
       const embed = new EmbedBuilder()
         .setColor(user.accentColor ?? BRAND)

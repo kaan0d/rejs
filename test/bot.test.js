@@ -262,7 +262,7 @@ test('due reminders are sent once, falling back to DM', async () => {
   const client = { channels: { cache: new Map() }, users: { fetch: async () => ({ send: async (t) => sent.push(t) }) } };
   await automation.deliverReminders(client);
   await automation.deliverReminders(client);
-  assert.deepEqual(sent, ['⏰ <@u>, reminder: check server']);
+  assert.deepEqual(sent, ['<@u>, reminder: check server']);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM reminders').get().n, 1);
 });
 
@@ -555,7 +555,7 @@ test('plain replies become a colored card, keeping ephemeral', () => {
   assert.equal(out.flags & MF.Ephemeral, MF.Ephemeral);
   assert.deepEqual(types(out.components), [CT.Container]);
   assert.equal(out.components[0].accent_color, C.Green);
-  assert.equal(out.components[0].components[0].content, '✅ Saved.');
+  assert.equal(out.components[0].components[0].content, 'Saved.');
   assert.equal(ui.modernize('❌ Nope').components[0].accent_color, C.Red);
 });
 

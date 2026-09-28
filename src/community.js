@@ -99,9 +99,9 @@ async function sendGoodbye(member) {
 
 const STATUS = {
   open: { label: 'Open', color: BRAND },
-  considering: { label: '🤔 Considering', color: Colors.Yellow },
-  accepted: { label: '✅ Accepted', color: Colors.Green },
-  denied: { label: '❌ Denied', color: Colors.Red },
+  considering: { label: 'Considering', color: Colors.Yellow },
+  accepted: { label: 'Accepted', color: Colors.Green },
+  denied: { label: 'Denied', color: Colors.Red },
 };
 const getSuggestion = (id) => db.prepare('SELECT * FROM suggestions WHERE id = ?').get(Number(id));
 const votesOf = (id) => db.prepare('SELECT COALESCE(SUM(vote = 1), 0) AS up, COALESCE(SUM(vote = -1), 0) AS down FROM suggestion_votes WHERE suggestion_id = ?').get(id);
@@ -123,8 +123,8 @@ async function suggestionMessage(client, s) {
   return {
     embeds: [embed],
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`sugg-up:${s.id}`).setEmoji('👍').setLabel(`${up}`).setStyle(ButtonStyle.Success).setDisabled(closed),
-      new ButtonBuilder().setCustomId(`sugg-down:${s.id}`).setEmoji('👎').setLabel(`${down}`).setStyle(ButtonStyle.Danger).setDisabled(closed),
+      new ButtonBuilder().setCustomId(`sugg-up:${s.id}`).setLabel(`Upvote · ${up}`).setStyle(ButtonStyle.Success).setDisabled(closed),
+      new ButtonBuilder().setCustomId(`sugg-down:${s.id}`).setLabel(`Downvote · ${down}`).setStyle(ButtonStyle.Danger).setDisabled(closed),
     )],
     allowedMentions: { parse: [] },
   };

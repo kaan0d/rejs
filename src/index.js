@@ -24,11 +24,11 @@ const updater = require('./updater');
 
 // Command files and the /help category each one belongs to.
 const FILES = {
-  general: '👋 General', info: '👋 General', utility: '👋 General',
-  moderation: '🔨 Moderation', cases: '🔨 Moderation', staff: '🔨 Moderation', bulk: '🔨 Moderation',
-  protection: '🛡️ Protection', snapshot: '🛡️ Protection', logs: '📜 Logs',
-  support: '🎫 Support', community: '🎉 Community', events: '🎉 Community',
-  automation: '⚙️ Automation', server: '🎮 Game server', channels: '🔧 Setup', admin: '🔧 Setup', undo: '🔧 Setup', owner: '👑 Owner',
+  general: 'General', info: 'General', utility: 'General',
+  moderation: 'Moderation', cases: 'Moderation', staff: 'Moderation', bulk: 'Moderation',
+  protection: 'Protection', snapshot: 'Protection', logs: 'Logs',
+  support: 'Support', community: 'Community', events: 'Community',
+  automation: 'Automation', server: 'Game server', delete: 'Setup', admin: 'Setup', undo: 'Setup', owner: 'Owner',
 };
 const commands = new Map(
   Object.entries(FILES)
