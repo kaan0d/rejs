@@ -115,7 +115,7 @@ function updatePresence(client, monitored) {
   const online = monitored.map((g) => state.get(g.guild_id)).filter((s) => s?.online);
   const text = online.length === 1
     ? `${online[0].info.clients}/${online[0].info.sv_maxclients} players`
-    : 'for thank-yous';
+    : 'over the server';
   if (text === lastPresence) return;
   lastPresence = text;
   client.user.setActivity(text, { type: ActivityType.Watching });

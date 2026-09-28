@@ -1,11 +1,10 @@
 const { Client, Events, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { getSettings } = require('./db');
-const levels = require('./levels');
 const monitor = require('./monitor');
 const scheduler = require('./scheduler');
 
 const commands = new Map(
-  ['general', 'levels', 'server', 'moderation', 'bulk', 'automation', 'admin']
+  ['general', 'server', 'moderation', 'bulk', 'automation', 'admin']
     .flatMap((file) => require(`./commands/${file}`))
     .map((command) => [command.data.name, command]),
 );
@@ -13,10 +12,8 @@ const commands = new Map(
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    // The next two are privileged: turn them on under Bot in the Developer Portal.
-    // Message Content spots "thanks"; Server Members powers auto-role and /bulk role.
-    GatewayIntentBits.MessageContent,
+    // Privileged: turn on "Server Members Intent" under Bot in the Developer Portal.
+    // Needed for auto-role and /bulk role.
     GatewayIntentBits.GuildMembers,
   ],
 });
@@ -39,8 +36,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await (interaction.replied || interaction.deferred ? interaction.followUp(reply) : interaction.reply(reply)).catch(() => {});
   }
 });
-
-client.on(Events.MessageCreate, (message) => levels.onMessage(message).catch(console.error));
 
 // Members still on the rules screen get the role once they accept.
 async function giveAutoRole(member) {

@@ -1,7 +1,7 @@
 {
   "name": "rejs",
   "version": "2.0.0",
-  "description": "Discord bot for FiveM server monitoring and a thank-you leveling system",
+  "description": "Discord moderation and automation bot with a FiveM server monitor",
   "main": "src/index.js",
   "scripts": {
     "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/index.js",

@@ -29,8 +29,7 @@ module.exports = [
       }
 
       const description = [
-        '**Thank someone** by saying *thanks*, *ty* or *thx* while replying to or mentioning them. They get 1 XP and you get a ✨.',
-        '', '**Commands**', ...everyone,
+        '**Commands**', ...everyone,
         ...(staff.length ? ['', '**Staff**', ...staff] : []),
       ].join('\n');
       await i.reply({
