@@ -55,9 +55,12 @@ async function execute(i) {
   buttons.push(new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary));
 
   const response = await i.reply({ content: lines.join('\n'), components: [new ActionRowBuilder().addComponents(buttons)], flags: MessageFlags.Ephemeral });
+  // Also ends early when this channel is deleted meanwhile (for example by another /channel delete),
+  // and then there is no message left to update.
   const choice = await response.awaitMessageComponent({ time: 60_000 }).catch(() => null);
   if (!choice || choice.customId === 'cancel') {
-    return (choice ? choice.update({ content: 'Cancelled. Nothing was deleted.', components: [] }) : i.editReply({ content: 'Timed out. Nothing was deleted.', components: [] }));
+    const done = choice ? choice.update({ content: 'Cancelled. Nothing was deleted.', components: [] }) : i.editReply({ content: 'Timed out. Nothing was deleted.', components: [] });
+    return done.catch(() => {});
   }
   await choice.update({ content: '⏳ Deleting…', components: [] });
 
@@ -76,8 +79,10 @@ async function execute(i) {
     title: '🗑️ Channels deleted', color: Colors.Red, moderator: i.user, reason,
     extra: `**Deleted:** ${names.slice(0, 900)}${isCategory && !withChildren && children.length ? `\n**Kept:** ${children.length} channels, now outside any category` : ''}`,
   });
-  // The reply may live in a channel that was just deleted.
-  await i.editReply(`✅ Deleted ${deleted} of ${doomed.length + 1}. Changed your mind? \`/undo\` recreates them.`).catch(() => {});
+  const result = `✅ Deleted ${deleted} of ${doomed.length + 1}. Changed your mind? \`/undo\` recreates them.`;
+  // Run from inside a deleted channel, the reply is gone with it; send the result by DM instead.
+  if ([target, ...doomed].some((c) => c.id === i.channelId)) await mod.notify(i.user, `${result}\n-# ${i.guild.name}`);
+  else await i.editReply(result).catch(() => {});
 }
 
 module.exports = [
