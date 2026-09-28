@@ -132,4 +132,6 @@ dist
 # personal settings
 settings.json
 *.db
+*.db-shm
+*.db-wal
 /Development
