@@ -61,7 +61,7 @@ async function execute(i) {
       description: `#${e.id} · ${new Date(e.created_at).toISOString().slice(5, 16).replace('T', ' ')} UTC${JSON.parse(e.notes).length ? ' · partly undoable' : ''}`,
     }))));
   const response = await i.reply({
-    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('↩️ Undo')
+    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('Undo')
       .setDescription('Pick one of the last 25 staff actions from the past 7 days. You will see what changes before anything happens.')],
     components: [menu],
     flags: MessageFlags.Ephemeral,
@@ -76,7 +76,7 @@ async function execute(i) {
       const newer = journal.newerThan(i.guildId, picked.id);
       const embed = new EmbedBuilder()
         .setColor(Colors.Orange)
-        .setTitle(`↩️ Undo #${picked.id}?`)
+        .setTitle(`Undo #${picked.id}?`)
         .setDescription(`\`${picked.label}\`\nby <@${picked.user_id}> <t:${unix(picked.created_at)}:R>`)
         .addFields({ name: 'Will reverse', value: describe(picked) });
       if (notes.length) embed.addFields({ name: "Can't be reversed", value: notes.map((n) => `• ${n}`).join('\n') });
@@ -92,7 +92,7 @@ async function execute(i) {
     collector.stop();
     if (c.customId === 'undo-cancel' || !picked) return c.update({ content: 'Cancelled. Nothing changed.', embeds: [], components: [] });
 
-    await c.update({ content: `⏳ Undoing #${picked.id}…`, embeds: [], components: [] });
+    await c.update({ content: `Undoing #${picked.id}…`, embeds: [], components: [] });
     const result = await journal.undo(i.guild, picked.id, i.user.id, refreshers);
     if (!result) return c.editReply({ content: 'That action was already undone.' });
     const lines = [`✅ Undid #${picked.id} \`${picked.label}\`: ${result.rows} records and ${result.steps} Discord changes reversed.`];
@@ -100,7 +100,7 @@ async function execute(i) {
     if (result.notes.length) lines.push(`Not reversible: ${result.notes.join('; ')}`);
     await c.editReply({ content: lines.join('\n') });
     await mod.modLog(i.guild, {
-      title: '↩️ Action undone',
+      title: 'Action undone',
       color: Colors.Grey,
       moderator: i.user,
       extra: `**Undid:** #${picked.id} \`${picked.label}\` by <@${picked.user_id}>${result.failed.length ? `\n**Could not reverse:** ${result.failed.length} changes` : ''}`,

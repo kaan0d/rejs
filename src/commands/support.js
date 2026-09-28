@@ -25,11 +25,11 @@ async function ticketCommand(i) {
     if (cfg.categories.some((c) => c.id === id)) return i.reply(ephemeral(`There is already a "${label}" ticket type.`));
     const role = i.options.getRole('staff_role');
     const emoji = i.options.getString('emoji');
-    if (emoji && !toEmoji(emoji)) return i.reply(ephemeral('That emoji won\'t work on a button. Use a normal emoji like 🛠️, or a server emoji picked from the emoji menu.'));
+    if (emoji && !toEmoji(emoji)) return i.reply(ephemeral('That emoji won\'t work on a button. Use a normal emoji like , or a server emoji picked from the emoji menu.'));
     cfg.categories.push({ id, label, roleId: role?.id ?? null, emoji: i.options.getString('emoji') });
     setFeature(i.guildId, 'tickets', cfg);
     const mentionNote = role && !role.mentionable && !i.guild.members.me.permissions.has(P.MentionEveryone)
-      ? `\n⚠️ ${role} can't be mentioned by me, so its members won't be added to tickets. Make it mentionable or give me Mention Everyone.`
+      ? `\n${role} can't be mentioned by me, so its members won't be added to tickets. Make it mentionable or give me Mention Everyone.`
       : '';
     return i.reply(ephemeral(`✅ Added "${label}". Post or refresh the panel with \`/ticket panel\`.${mentionNote}`));
   }
@@ -51,7 +51,7 @@ async function ticketCommand(i) {
     const panel = await channel.send({
       embeds: [new EmbedBuilder()
         .setColor(BRAND)
-        .setTitle(i.options.getString('title') ?? '🎫 Support')
+        .setTitle(i.options.getString('title') ?? 'Support')
         .setDescription(i.options.getString('message') ?? 'Need help? Pick a topic below. A private thread opens where only you and staff can talk.')],
       components: tickets.panelRows(cfg.categories),
     });
@@ -68,7 +68,7 @@ async function ticketCommand(i) {
     return i.reply(ephemeral([
       `Transcripts go to: ${cfg.logChannelId ? `<#${cfg.logChannelId}>` : 'nowhere yet (set log_channel)'}`,
       `Auto-close: ${cfg.inactiveHours ? `warn after ${cfg.inactiveHours}h of silence, close 24h later` : 'off'}`,
-      `Types: ${cfg.categories.map((c) => `${c.emoji ?? ''}${c.label}${c.roleId ? ` → <@&${c.roleId}>` : ''}`).join(', ') || 'none'}`,
+      `Types: ${cfg.categories.map((c) => `${c.label}${c.roleId ? ` → <@&${c.roleId}>` : ''}`).join(', ') || 'none'}`,
     ].join('\n')));
   }
 
@@ -77,12 +77,12 @@ async function ticketCommand(i) {
       SUM(status = 'open') AS open, SUM(status = 'closed') AS closed,
       AVG(rating) AS avg, COUNT(rating) AS rated FROM tickets WHERE guild_id = ?`).get(i.guildId);
     const staff = db.prepare("SELECT claimed_by, COUNT(*) AS n, AVG(rating) AS avg FROM tickets WHERE guild_id = ? AND claimed_by IS NOT NULL GROUP BY claimed_by ORDER BY n DESC LIMIT 10").all(i.guildId);
-    const stars = (avg) => (avg ? `${avg.toFixed(1)}⭐` : 'no ratings');
+    const stars = (avg) => (avg ? `${avg.toFixed(1)}` : 'no ratings');
     return i.reply({
       flags: MessageFlags.Ephemeral,
       embeds: [new EmbedBuilder()
         .setColor(BRAND)
-        .setTitle('🎫 Ticket stats')
+        .setTitle('Ticket stats')
         .addFields(
           { name: 'Open', value: `${row.open ?? 0}`, inline: true },
           { name: 'Closed', value: `${row.closed ?? 0}`, inline: true },
@@ -101,12 +101,12 @@ async function ticketCommand(i) {
   if (sub === 'add') {
     await i.channel.members.add(user.id);
     journal.threadMember(i.channel, user.id, true);
-    return i.reply(`➕ Added ${user} to this ticket.`);
+    return i.reply(`Added ${user} to this ticket.`);
   }
   if (user.id === ticket.user_id) return i.reply(ephemeral("You can't remove the member who opened the ticket. Close it instead."));
   await i.channel.members.remove(user.id);
   journal.threadMember(i.channel, user.id, false);
-  return i.reply(`➖ Removed ${user} from this ticket.`);
+  return i.reply(`Removed ${user} from this ticket.`);
 }
 
 module.exports = [
@@ -119,7 +119,7 @@ module.exports = [
       .addSubcommand((s) => s.setName('category-add').setDescription('Add a ticket type (a button on the panel)')
         .addStringOption((o) => o.setName('label').setDescription('e.g. Support, Report a player, Ban appeal').setMaxLength(40).setRequired(true))
         .addRoleOption((o) => o.setName('staff_role').setDescription('Staff role added to these tickets'))
-        .addStringOption((o) => o.setName('emoji').setDescription('Button emoji, e.g. 🛠️').setMaxLength(40)))
+        .addStringOption((o) => o.setName('emoji').setDescription('Button emoji, e.g. ').setMaxLength(40)))
       .addSubcommand((s) => s.setName('category-remove').setDescription('Remove a ticket type')
         .addStringOption((o) => o.setName('label').setDescription('Name of the ticket type').setRequired(true)))
       .addSubcommand((s) => s.setName('panel').setDescription('Post the ticket panel. Tickets open as private threads in this channel')

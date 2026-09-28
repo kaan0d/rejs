@@ -34,7 +34,7 @@ async function repostSticky(channel) {
   const sticky = db.prepare('SELECT * FROM stickies WHERE channel_id = ?').get(channel.id);
   if (!sticky) return;
   if (sticky.message_id) await channel.messages.delete(sticky.message_id).catch(() => {});
-  const message = await channel.send({ content: `📌 ${sticky.content}`, allowedMentions: { parse: [] } }).catch(() => null);
+  const message = await channel.send({ content: `${sticky.content}`, allowedMentions: { parse: [] } }).catch(() => null);
   if (message) db.prepare('UPDATE stickies SET message_id = ? WHERE channel_id = ?').run(message.id, channel.id);
 }
 
@@ -53,7 +53,7 @@ function scheduleSticky(channel) {
 async function deliverReminders(client) {
   for (const r of db.prepare('SELECT * FROM reminders WHERE due_at <= ?').all(Date.now())) {
     db.prepare('DELETE FROM reminders WHERE id = ?').run(r.id);
-    const text = `⏰ <@${r.user_id}>, reminder: ${r.text}`;
+    const text = `<@${r.user_id}>, reminder: ${r.text}`;
     const channel = !r.dm && r.channel_id && client.channels.cache.get(r.channel_id);
     const sent = channel && await channel.send({ content: text, allowedMentions: { users: [r.user_id] } }).then(() => true, () => false);
     if (!sent) await client.users.fetch(r.user_id).then((u) => u.send(text)).catch(() => {});

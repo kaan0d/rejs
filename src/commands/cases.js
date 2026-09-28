@@ -22,7 +22,7 @@ async function history(i) {
 
   const counts = {};
   for (const c of rows) counts[c.action] = (counts[c.action] ?? 0) + 1;
-  const summary = Object.entries(counts).map(([action, n]) => `${mod.ACTIONS[action].emoji} ${n}`).join('  ');
+  const summary = Object.entries(counts).map(([action, n]) => `${mod.ACTIONS[action].label} **${n}**`).join(' · ');
   const pages = Math.ceil(rows.length / PAGE_SIZE);
   let page = 0;
 
@@ -30,7 +30,7 @@ async function history(i) {
     const lines = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((c) => {
       const a = mod.ACTIONS[c.action];
       const struck = c.active ? '' : '~~';
-      return `${a.emoji} \`#${c.number}\` ${struck}**${a.label}**${struck} <t:${unix(c.created_at)}:R> by <@${c.moderator_id}>\n${escapeMarkdown(c.reason)}`;
+      return `\`#${c.number}\` ${struck}**${a.label}**${struck} <t:${unix(c.created_at)}:R> by <@${c.moderator_id}>\n${escapeMarkdown(c.reason)}`;
     });
     const embed = new EmbedBuilder()
       .setColor(BRAND)
@@ -38,8 +38,8 @@ async function history(i) {
       .setDescription(`${summary}\n\n${lines.join('\n\n')}`)
       .setFooter({ text: `Page ${page + 1}/${pages} · crossed out = removed or lifted` });
     const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('prev').setEmoji('◀️').setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-      new ButtonBuilder().setCustomId('next').setEmoji('▶️').setStyle(ButtonStyle.Secondary).setDisabled(page === pages - 1),
+      new ButtonBuilder().setCustomId('prev').setLabel('Previous').setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+      new ButtonBuilder().setCustomId('next').setLabel('Next').setStyle(ButtonStyle.Secondary).setDisabled(page === pages - 1),
     );
     return { embeds: [embed], components: pages > 1 ? [buttons] : [], flags: MessageFlags.Ephemeral };
   };
@@ -75,7 +75,7 @@ async function note(i) {
   }
   const user = i.options.getUser('user', true);
   const number = await mod.recordCase(i.guild, { action: 'note', user, moderator: i.user, reason: i.options.getString('text', true) });
-  return i.reply(ephemeral(`📝 Saved note #${number} on ${user}. See it with \`/history\`.`));
+  return i.reply(ephemeral(`Saved note #${number} on ${user}. See it with \`/history\`.`));
 }
 
 async function reasons(i) {
@@ -84,7 +84,7 @@ async function reasons(i) {
     const rows = db.prepare('SELECT text FROM reasons WHERE guild_id = ? ORDER BY text').all(i.guildId);
     return i.reply({
       flags: MessageFlags.Ephemeral,
-      embeds: [new EmbedBuilder().setColor(BRAND).setTitle('📋 Saved reasons')
+      embeds: [new EmbedBuilder().setColor(BRAND).setTitle('Saved reasons')
         .setDescription(rows.map((r) => `• ${escapeMarkdown(r.text)}`).join('\n') || 'None yet. Add one with `/reasons add`.')],
     });
   }
@@ -116,10 +116,10 @@ function staffActivity(guildId, since) {
 }
 
 function activityLine(stats) {
-  const parts = Object.entries(mod.ACTIONS).filter(([a]) => stats[a]).map(([a, { emoji }]) => `${emoji} ${stats[a]}`);
-  if (stats.tickets) parts.push(`🎫 ${stats.tickets}`);
-  if (stats.reports) parts.push(`🚩 ${stats.reports}`);
-  return parts.join('  ');
+  const parts = Object.entries(mod.ACTIONS).filter(([a]) => stats[a]).map(([a, { label }]) => `${label} ${stats[a]}`);
+  if (stats.tickets) parts.push(`Tickets ${stats.tickets}`);
+  if (stats.reports) parts.push(`Reports ${stats.reports}`);
+  return parts.join(' · ');
 }
 
 async function modstats(i) {
@@ -138,17 +138,17 @@ async function modstats(i) {
       embeds: [new EmbedBuilder().setColor(BRAND)
         .setAuthor({ name: `${who.username} · ${periodText(days)}`, iconURL: who.displayAvatarURL() })
         .setDescription(stats ? `**${stats.total} actions**\n${activityLine(stats)}` : 'No actions in this period.')
-        .addFields({ name: 'Latest cases', value: recent.map((c) => `\`#${c.number}\` ${mod.ACTIONS[c.action].emoji} <@${c.user_id}> <t:${unix(c.created_at)}:R>`).join('\n') || '—' })],
+        .addFields({ name: 'Latest cases', value: recent.map((c) => `\`#${c.number}\` ${mod.ACTIONS[c.action].label} · <@${c.user_id}> <t:${unix(c.created_at)}:R>`).join('\n') || '—' })],
     });
   }
 
   const ranked = [...staff.entries()].sort((a, b) => b[1].total - a[1].total).slice(0, 15);
-  const lines = ranked.map(([id, stats], n) => `\`${n + 1}.\` ${id === botId ? '🤖 Automatic' : `<@${id}>`} · **${stats.total}** · ${activityLine(stats)}`);
+  const lines = ranked.map(([id, stats], n) => `\`${n + 1}.\` ${id === botId ? 'Automatic' : `<@${id}>`} · **${stats.total}** · ${activityLine(stats)}`);
   return i.reply({
     flags: MessageFlags.Ephemeral,
-    embeds: [new EmbedBuilder().setColor(BRAND).setTitle(`📈 Staff activity · ${periodText(days)}`)
+    embeds: [new EmbedBuilder().setColor(BRAND).setTitle(`Staff activity · ${periodText(days)}`)
       .setDescription(lines.join('\n') || 'No staff actions in this period.')
-      .setFooter({ text: 'Cases, claimed tickets (🎫) and handled reports (🚩). Notes are not counted.' })],
+      .setFooter({ text: 'Cases, claimed tickets and handled reports. Notes are not counted.' })],
   });
 }
 

@@ -85,12 +85,12 @@ async function automod(i) {
   }
 
   const rules = await i.guild.autoModerationRules.fetch();
-  const lines = rules.map((r) => `${r.enabled ? '🟢' : '⚪'} **${r.name}**${Object.values(RULES).includes(r.name) ? '' : ' (not managed by me)'}`);
+  const lines = rules.map((r) => `**${r.name}** · ${r.enabled ? 'On' : 'Off'}${Object.values(RULES).includes(r.name) ? '' : ' · not managed by me'}`);
   const { modlog_channel_id } = getSettings(i.guildId);
   return i.editReply({
     embeds: [new EmbedBuilder()
       .setColor(BRAND)
-      .setTitle('🛡️ AutoMod rules')
+      .setTitle('AutoMod rules')
       .setDescription(lines.join('\n') || 'No rules yet.')
       .setFooter({ text: modlog_channel_id ? 'Blocked messages are reported in the mod log.' : 'Set /config modlog to get alerts for blocked messages.' })],
   });
@@ -128,7 +128,7 @@ async function schedule(i) {
   });
   return i.reply({
     flags: MessageFlags.Ephemeral,
-    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('🗓️ Scheduled messages').setDescription(lines.join('\n\n') || 'None yet. Add one with `/schedule add`.')],
+    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('Scheduled messages').setDescription(lines.join('\n\n') || 'None yet. Add one with `/schedule add`.')],
   });
 }
 
@@ -190,7 +190,7 @@ module.exports = [
         const channel = i.options.getChannel('channel');
         const { lastInsertRowid: id } = db.prepare('INSERT INTO responders (guild_id, trigger, response, channels) VALUES (?, ?, ?, ?)')
           .run(i.guildId, i.options.getString('trigger', true).trim(), i.options.getString('response', true).replaceAll('\\n', '\n'), JSON.stringify(channel ? [channel.id] : []));
-        const note = i.client.hasMessageContent ? '' : '\n⚠️ The Message Content intent is off, so auto-replies stay inactive until the bot owner turns it on.';
+        const note = i.client.hasMessageContent ? '' : '\nThe Message Content intent is off, so auto-replies stay inactive until the bot owner turns it on.';
         return i.reply(ephemeral(`✅ Auto-reply #${id} added${channel ? ` for ${channel}` : ''}.${note}`));
       }
       if (sub === 'remove') {
@@ -202,7 +202,7 @@ module.exports = [
       const where = (r) => JSON.parse(r.channels).map((c) => `<#${c}>`).join(' ') || 'everywhere';
       return i.reply({
         flags: MessageFlags.Ephemeral,
-        embeds: [new EmbedBuilder().setColor(BRAND).setTitle('💬 Auto-replies')
+        embeds: [new EmbedBuilder().setColor(BRAND).setTitle('Auto-replies')
           .setDescription(rows.map((r) => `\`#${r.id}\` "${r.trigger}" · ${where(r)}\n> ${r.response.slice(0, 80).replaceAll('\n', ' ')}`).join('\n').slice(0, 4000) || 'None yet.')],
       });
     },
@@ -231,7 +231,7 @@ module.exports = [
         ON CONFLICT (channel_id) DO UPDATE SET content = excluded.content, message_id = NULL`)
         .run(channel.id, i.guildId, i.options.getString('message', true).replaceAll('\\n', '\n'));
       await automation.repostSticky(channel);
-      return i.reply(ephemeral(`📌 Sticky message set in ${channel}. It moves back to the bottom a few seconds after people post.`));
+      return i.reply(ephemeral(`Sticky message set in ${channel}. It moves back to the bottom a few seconds after people post.`));
     },
   },
 
@@ -259,7 +259,7 @@ module.exports = [
         cfg.channels = cfg.channels.filter((id) => id !== channel.id);
       }
       setFeature(i.guildId, 'autopublish', cfg);
-      return i.reply(ephemeral(`📣 Auto-published: ${cfg.channels.map((id) => `<#${id}>`).join(', ') || 'none'}. Discord allows about 10 publishes per hour per channel.`));
+      return i.reply(ephemeral(`Auto-published: ${cfg.channels.map((id) => `<#${id}>`).join(', ') || 'none'}. Discord allows about 10 publishes per hour per channel.`));
     },
   },
 ];

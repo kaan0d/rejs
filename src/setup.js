@@ -24,7 +24,7 @@ const LOG_CHANNELS = [
 async function createLogs(guild) {
   const me = guild.members.me;
   const category = await guild.channels.create({
-    name: '📋 Staff logs',
+    name: 'Staff logs',
     type: ChannelType.GuildCategory,
     permissionOverwrites: [
       { id: guild.roles.everyone.id, deny: [P.ViewChannel] },
@@ -65,24 +65,24 @@ async function createQuarantine(guild) {
 }
 
 const STEPS = {
-  logs: { label: 'Create log channels', emoji: '📋', run: createLogs, done: (g) => Boolean(getSettings(g).modlog_channel_id) },
-  verify: { label: 'Create verification', emoji: '✅', run: createVerify, done: (g) => Boolean(getFeature(g, 'verification', {}).roleId) },
-  quarantine: { label: 'Quarantine new accounts', emoji: '🛂', run: createQuarantine, done: (g) => getFeature(g, 'agegate', {}).enabled },
+  logs: { label: 'Create log channels', run: createLogs, done: (g) => Boolean(getSettings(g).modlog_channel_id) },
+  verify: { label: 'Create verification', run: createVerify, done: (g) => Boolean(getFeature(g, 'verification', {}).roleId) },
+  quarantine: { label: 'Quarantine new accounts', run: createQuarantine, done: (g) => getFeature(g, 'agegate', {}).enabled },
 };
 
 function wizardMessage(guild) {
-  const lines = Object.values(STEPS).map((s) => `${s.done(guild.id) ? '✅' : '⬜'} ${s.emoji} ${s.label}`);
+  const lines = Object.values(STEPS).map((s) => `${s.done(guild.id) ? '✓' : '○'} ${s.label}${s.done(guild.id) ? ' · done' : ''}`);
   return {
     embeds: [new EmbedBuilder()
       .setColor(BRAND)
-      .setTitle(`👋 Thanks for adding ${guild.members.me.user.username}!`)
+      .setTitle(`Thanks for adding ${guild.members.me.user.username}!`)
       .setDescription([
         'A few clicks set up the basics. Each button creates what it needs and connects it to the bot.',
         '', ...lines, '',
         'After that: `/protection` for raids, nukes and spam, `/automod` for word filters, and `/help` for everything else.',
       ].join('\n'))],
     components: [new ActionRowBuilder().addComponents(
-      ...Object.entries(STEPS).map(([key, s]) => new ButtonBuilder().setCustomId(`setup:${key}`).setLabel(s.label).setEmoji(s.emoji)
+      ...Object.entries(STEPS).map(([key, s]) => new ButtonBuilder().setCustomId(`setup:${key}`).setLabel(s.label)
         .setStyle(s.done(guild.id) ? ButtonStyle.Secondary : ButtonStyle.Primary).setDisabled(s.done(guild.id))),
       new ButtonBuilder().setCustomId('setup:done').setLabel('Done').setStyle(ButtonStyle.Success),
     )],
@@ -115,8 +115,8 @@ async function welcomeServer(guild) {
   const entry = await guild.fetchAuditLogs({ type: AuditLogEvent.BotAdd, limit: 5 }).catch(() => null);
   const adder = entry?.entries.find((e) => e.targetId === me.id)?.executor;
   await adder?.send(message
-    ? `👋 Thanks for adding me to **${guild.name}**! I posted a quick setup in ${message.url}. You can bring it back any time with \`/setup\`.`
-    : `👋 Thanks for adding me to **${guild.name}**! Run \`/setup\` there to get started.`).catch(() => {});
+    ? `Thanks for adding me to **${guild.name}**! I posted a quick setup in ${message.url}. You can bring it back any time with \`/setup\`.`
+    : `Thanks for adding me to **${guild.name}**! Run \`/setup\` there to get started.`).catch(() => {});
 }
 
 const register = (client) => client.on(Events.GuildCreate, (guild) => {

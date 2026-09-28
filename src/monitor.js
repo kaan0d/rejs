@@ -78,8 +78,8 @@ async function pollGuild(client, settings) {
     if (++s.failures === OFFLINE_AFTER_FAILURES) {
       s.online = false;
       closeSessions(guildId, Date.now());
-      await post(channel, Colors.Red, '🔴 Server is offline', 'Everyone was marked as left. I will post again when it is back.');
-      await renameCountChannel(client, guildId, s, '🔴 Server offline', true);
+      await post(channel, Colors.Red, 'Server is offline', 'Everyone was marked as left. I will post again when it is back.');
+      await renameCountChannel(client, guildId, s, 'Server offline', true);
     }
     return;
   }
@@ -87,10 +87,10 @@ async function pollGuild(client, settings) {
   const wasOffline = s.online === false;
   Object.assign(s, { online: true, failures: 0, info: data.info });
   if (wasOffline) {
-    await post(channel, Colors.Green, '🟢 Server is back online', `${data.info.clients}/${data.info.sv_maxclients} players`);
+    await post(channel, Colors.Green, 'Server is back online', `${data.info.clients}/${data.info.sv_maxclients} players`);
   }
   recordCount(guildId, s, data.players.length);
-  await renameCountChannel(client, guildId, s, `🎮 Players: ${data.info.clients}/${data.info.sv_maxclients}`);
+  await renameCountChannel(client, guildId, s, `Players: ${data.info.clients}/${data.info.sv_maxclients}`);
 
   // ponytail: sessions still open from before a bot restart count the downtime as playtime.
   const now = Date.now();
@@ -105,11 +105,11 @@ async function pollGuild(client, settings) {
   for (const row of left) close.run(now, row.id);
 
   if (joined.length) {
-    await post(channel, Colors.Green, `🟩 ${joined.length} joined`, listLines(joined.map(([, p]) => escapeMarkdown(p.name))));
+    await post(channel, Colors.Green, `${joined.length} joined`, listLines(joined.map(([, p]) => escapeMarkdown(p.name))));
     await alertWatched(client, guildId, joined);
   }
   if (left.length) {
-    await post(channel, Colors.Red, `🟥 ${left.length} left`,
+    await post(channel, Colors.Red, `${left.length} left`,
       listLines(left.map((row) => `${escapeMarkdown(row.name)} · played ${formatDuration(now - row.joined_at)}`)));
   }
 }
@@ -164,7 +164,7 @@ async function alertWatched(client, guildId, joined) {
   const modlog = client.channels.cache.get(getSettings(guildId).modlog_channel_id);
   await modlog?.send({
     content: '@here',
-    embeds: [new EmbedBuilder().setColor(Colors.Orange).setTitle('👀 Watched player joined the game server').setDescription(hits.join('\n')).setTimestamp()],
+    embeds: [new EmbedBuilder().setColor(Colors.Orange).setTitle('Watched player joined the game server').setDescription(hits.join('\n')).setTimestamp()],
     allowedMentions: { parse: ['everyone'] },
   }).catch(() => {});
 }

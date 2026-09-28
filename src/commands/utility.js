@@ -16,7 +16,7 @@ async function tags(i) {
     const rows = db.prepare('SELECT name, uses FROM tags WHERE guild_id = ? ORDER BY name').all(i.guildId);
     return i.reply({
       flags: MessageFlags.Ephemeral,
-      embeds: [new EmbedBuilder().setColor(BRAND).setTitle(`🏷️ Tags (${rows.length})`)
+      embeds: [new EmbedBuilder().setColor(BRAND).setTitle(`Tags (${rows.length})`)
         .setDescription(rows.map((t) => `\`${t.name}\` · used ${t.uses}×`).join('\n').slice(0, 4000) || 'No tags yet. Add one with `/tags add`.')],
     });
   }
@@ -44,7 +44,7 @@ async function reminders(i) {
   const rows = db.prepare('SELECT * FROM reminders WHERE user_id = ? ORDER BY due_at').all(i.user.id);
   return i.reply({
     flags: MessageFlags.Ephemeral,
-    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('⏰ Your reminders')
+    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('Your reminders')
       .setDescription(rows.map((r) => `\`#${r.id}\` <t:${unix(r.due_at)}:R> · ${escapeMarkdown(r.text.slice(0, 100))}`).join('\n') || 'None.')],
   });
 }
@@ -104,7 +104,7 @@ module.exports = [
       const due = Date.now() + ms;
       const { lastInsertRowid: id } = db.prepare('INSERT INTO reminders (user_id, guild_id, channel_id, text, due_at, dm) VALUES (?, ?, ?, ?, ?, ?)')
         .run(i.user.id, i.guildId, i.channelId, i.options.getString('about', true), due, dm ? 1 : 0);
-      await i.reply(ephemeral(`⏰ Reminder #${id} set for <t:${unix(due)}:f> (<t:${unix(due)}:R>)${dm ? ' by DM' : ''}.`));
+      await i.reply(ephemeral(`Reminder #${id} set for <t:${unix(due)}:f> (<t:${unix(due)}:R>)${dm ? ' by DM' : ''}.`));
     },
   },
 

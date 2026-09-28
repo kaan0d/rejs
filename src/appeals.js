@@ -14,7 +14,7 @@ const unix = (ms) => Math.floor(ms / 1000);
 function appealRow(guildId) {
   if (!getSettings(guildId).appeals_channel_id) return [];
   return [new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`appeal:${guildId}`).setLabel('Appeal this ban').setEmoji('📨').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`appeal:${guildId}`).setLabel('Appeal this ban').setStyle(ButtonStyle.Primary),
   )];
 }
 
@@ -42,12 +42,12 @@ async function decide(i, appealId, accept) {
     mod.closeBans(i.guildId, user.id);
     await mod.recordCase(i.guild, { action: 'unban', user, moderator: i.user, reason: `Appeal accepted (ban case #${appeal.case_number})` });
     const invite = await makeInvite(i.guild);
-    await mod.notify(user, `🕊️ Your appeal to **${i.guild.name}** was accepted.${invite ? ` You can rejoin here: ${invite}` : ' You can rejoin.'}`);
+    await mod.notify(user, `Your appeal to **${i.guild.name}** was accepted.${invite ? ` You can rejoin here: ${invite}` : ' You can rejoin.'}`);
   } else {
     await mod.notify(user, `Your ban appeal to **${i.guild.name}** was denied.`);
   }
 
-  await i.editReply(ui.finishCard(i.message, { status: `${accept ? '✅ Accepted' : '❌ Denied'} by ${i.user.tag}`, color: accept ? Colors.Green : Colors.Red }));
+  await i.editReply(ui.finishCard(i.message, { status: `${accept ? 'Accepted' : 'Denied'} by ${i.user.tag}`, color: accept ? Colors.Green : Colors.Red }));
 }
 
 // Keyed by the part of the custom ID before the colon. Custom IDs carry their own data,
@@ -100,7 +100,7 @@ const handlers = {
       )],
       allowedMentions: { parse: [] },
     });
-    await i.reply(ephemeral('📨 Your appeal was sent. You will get a DM when staff decide.'));
+    await i.reply(ephemeral('Your appeal was sent. You will get a DM when staff decide.'));
   },
 
   'appeal-accept': (i, id) => decide(i, id, true),

@@ -45,7 +45,7 @@ async function onAuditEntry(entry, guild) {
   const what = Object.entries(counts).map(([k, n]) => `${n}× ${k}`).join(', ');
   const embed = new EmbedBuilder()
     .setColor(Colors.DarkRed)
-    .setTitle('☢️ Anti-nuke triggered')
+    .setTitle('Anti-nuke triggered')
     .setDescription([
       `<@${entry.executorId}> (\`${entry.executorId}\`) did ${what} within ${cfg.seconds} seconds.`,
       stripped

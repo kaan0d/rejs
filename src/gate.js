@@ -64,14 +64,14 @@ async function quarantine(member) {
   if (!role) return;
   await member.roles.add(role, 'Age gate: account too new').catch(() => {});
   const age = formatDuration(Date.now() - member.user.createdTimestamp);
-  await mod.notify(member.user, `👋 Welcome to **${member.guild.name}**! Your account is only ${age} old, so staff will check it before you get full access. You can talk to them in the quarantine channel.`);
-  await member.guild.channels.cache.get(cfg.channelId)?.send(`👋 ${member}, your account is new, so staff will review it shortly. Thanks for your patience.`).catch(() => {});
+  await mod.notify(member.user, `Welcome to **${member.guild.name}**! Your account is only ${age} old, so staff will check it before you get full access. You can talk to them in the quarantine channel.`);
+  await member.guild.channels.cache.get(cfg.channelId)?.send(`${member}, your account is new, so staff will review it shortly. Thanks for your patience.`).catch(() => {});
 
   const channel = member.guild.channels.cache.get(getSettings(member.guild.id).modlog_channel_id);
   await channel?.send({
     embeds: [new EmbedBuilder()
       .setColor(Colors.Orange)
-      .setAuthor({ name: `🛂 Quarantined · ${member.user.tag}`, iconURL: member.displayAvatarURL() })
+      .setAuthor({ name: `Quarantined · ${member.user.tag}`, iconURL: member.displayAvatarURL() })
       .setDescription(`${member} (\`${member.id}\`)\nAccount created <t:${unix(member.user.createdTimestamp)}:R>, below the ${formatDuration(cfg.minAgeMs)} minimum.`)
       .setTimestamp()],
     components: [new ActionRowBuilder().addComponents(
@@ -91,7 +91,7 @@ async function approve(member, moderator) {
   journal.memberRole(member, roleId, false);
   await giveAutoRole(member);
   await mod.notify(member.user, `✅ Staff approved your account in **${member.guild.name}**. You now have full access.`);
-  await mod.modLog(member.guild, { title: '🛂 Approved', color: Colors.Green, target: member.user, moderator });
+  await mod.modLog(member.guild, { title: 'Approved', color: Colors.Green, target: member.user, moderator });
   return true;
 }
 
@@ -108,7 +108,7 @@ async function postVerifyPanel(channel, role, text) {
       .setTitle('✅ Verification')
       .setDescription(text || `Click the button below to get ${role} and unlock the server.`)],
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('verify').setLabel('Verify').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('verify').setLabel('Verify').setStyle(ButtonStyle.Success),
     )],
     allowedMentions: { parse: [] },
   });

@@ -11,7 +11,7 @@ const gate = require('../gate');
 
 const P = PermissionFlagsBits;
 const TEXT_CHANNELS = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
-const onOff = (on) => (on ? '🟢 On' : '⚪ Off');
+const onOff = (on) => (on ? 'On' : 'Off');
 
 const command = (name, description, permission) => new SlashCommandBuilder()
   .setName(name)
@@ -56,7 +56,7 @@ async function antinukeCommand(i) {
   ]);
   setFeature(i.guildId, 'antinuke', cfg);
   const me = i.guild.members.me;
-  const warning = cfg.enabled && !me.permissions.has(P.ViewAuditLog) ? '\n⚠️ I need the **View Audit Log** permission to see who did what.' : '';
+  const warning = cfg.enabled && !me.permissions.has(P.ViewAuditLog) ? '\nI need the **View Audit Log** permission to see who did what.' : '';
   const roleNote = cfg.enabled ? `\nI can only strip roles below mine (${me.roles.highest}). Keep my role near the top.` : '';
   return i.reply(ephemeral((cfg.enabled
     ? `✅ Anti-nuke is on: anyone except you who bans, kicks, or deletes channels or roles **${cfg.limit} times in ${cfg.seconds}s** loses their roles.`
@@ -135,13 +135,13 @@ async function protectionStatus(i) {
     flags: MessageFlags.Ephemeral,
     embeds: [new EmbedBuilder()
       .setColor(BRAND)
-      .setTitle('🛡️ Protection')
+      .setTitle('Protection')
       .addFields(
-        { name: 'Anti-raid', value: `${onOff(raid.enabled)}${raid.enabled ? ` · ${raid.joins} joins / ${raid.seconds}s` : ''}${raidState.active ? '\n🚨 **Raid mode active**' : ''}`, inline: true },
+        { name: 'Anti-raid', value: `${onOff(raid.enabled)}${raid.enabled ? ` · ${raid.joins} joins / ${raid.seconds}s` : ''}${raidState.active ? '\n**Raid mode active**' : ''}`, inline: true },
         { name: 'Anti-nuke', value: `${onOff(nuke.enabled)}${nuke.enabled ? ` · ${nuke.limit} actions / ${nuke.seconds}s` : ''}`, inline: true },
-        { name: 'Anti-spam', value: i.client.hasMessageContent ? onOff(spam.enabled) : '⚪ Unavailable (no Message Content intent)', inline: true },
+        { name: 'Anti-spam', value: i.client.hasMessageContent ? onOff(spam.enabled) : 'Unavailable (no Message Content intent)', inline: true },
         { name: 'Age gate', value: `${onOff(age.enabled)}${age.enabled ? ` · under ${formatDuration(age.minAgeMs)}` : ''}`, inline: true },
-        { name: 'Verification', value: verify.roleId ? `🟢 <#${verify.channelId}> → <@&${verify.roleId}>` : '⚪ Off', inline: true },
+        { name: 'Verification', value: verify.roleId ? `<#${verify.channelId}> → <@&${verify.roleId}>` : 'Off', inline: true },
       )],
   });
 }

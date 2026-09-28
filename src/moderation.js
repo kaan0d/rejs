@@ -8,14 +8,14 @@ const MAX_TIMEOUT_MS = 28 * 86_400_000;
 const unix = (ms) => Math.floor(ms / 1000);
 
 const ACTIONS = {
-  warn: { label: 'Warning', emoji: '⚠️', color: Colors.Yellow },
-  timeout: { label: 'Timeout', emoji: '🔇', color: Colors.Orange },
-  untimeout: { label: 'Timeout lifted', emoji: '🔊', color: Colors.Green },
-  kick: { label: 'Kick', emoji: '👢', color: Colors.Orange },
-  softban: { label: 'Softban', emoji: '🧹', color: Colors.Orange },
-  ban: { label: 'Ban', emoji: '🔨', color: Colors.Red },
-  unban: { label: 'Unban', emoji: '🕊️', color: Colors.Green },
-  note: { label: 'Note', emoji: '📝', color: BRAND },
+  warn: { label: 'Warning', color: Colors.Yellow },
+  timeout: { label: 'Timeout', color: Colors.Orange },
+  untimeout: { label: 'Timeout lifted', color: Colors.Green },
+  kick: { label: 'Kick', color: Colors.Orange },
+  softban: { label: 'Softban', color: Colors.Orange },
+  ban: { label: 'Ban', color: Colors.Red },
+  unban: { label: 'Unban', color: Colors.Green },
+  note: { label: 'Note', color: BRAND },
 };
 
 const ABLE = {
@@ -74,7 +74,7 @@ function caseEmbed(c) {
   if (c.expires_at) lines.push(`**${c.active ? 'Expires' : 'Expired'}:** <t:${unix(c.expires_at)}:R>`);
   return new EmbedBuilder()
     .setColor(a.color)
-    .setTitle(`${a.emoji} Case #${c.number} · ${a.label}`)
+    .setTitle(`Case #${c.number} · ${a.label}`)
     .setDescription(lines.join('\n'))
     .setTimestamp(c.created_at);
 }
@@ -111,7 +111,7 @@ async function escalate(member, count) {
   const bot = member.guild.members.me;
   const reason = `Automatic: reached ${count} warnings`;
   if (s.warn_kick_at && count >= s.warn_kick_at && member.kickable) {
-    await notify(member.user, `👢 You were kicked from **${member.guild.name}** after ${count} warnings.`);
+    await notify(member.user, `You were kicked from **${member.guild.name}** after ${count} warnings.`);
     journal.cannotUndo('Automatic kick after too many warnings');
     await member.kick(auditReason(bot, reason));
     await recordCase(member.guild, { action: 'kick', user: member.user, moderator: bot.user, reason });

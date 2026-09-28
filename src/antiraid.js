@@ -67,7 +67,7 @@ async function startRaid(guild, cfg, ids) {
   lines.push('', 'End raid mode with the button or `/antiraid end` once it is over.');
   await alertStaff(guild, new EmbedBuilder()
     .setColor(Colors.Red)
-    .setTitle('🚨 Raid detected')
+    .setTitle('Raid detected')
     .setDescription(lines.join('\n'))
     .setTimestamp(),
   [new ActionRowBuilder().addComponents(

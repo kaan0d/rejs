@@ -4,7 +4,7 @@
 
 Everything is a slash command. Staff commands are hidden from members who can't use them.
 
-Every message the bot sends, including replies, DMs, logs and panels, is a card built with Discord's Components V2: an accent color that shows the outcome (green done, red error, orange warning), headings, avatar thumbnails, image galleries, separators, and buttons and menus inside the card. Forms use labels, hints and select menus.
+Every message the bot sends, including replies, DMs, logs and panels, is a card built with Discord's Components V2: an accent color that shows the outcome (green done, red error, orange warning) instead of emojis, headings, avatar thumbnails, image galleries, separators, and buttons and menus inside the card. Forms use labels, hints and select menus.
 
 ## Features
 
@@ -127,7 +127,7 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/modstats [days] [moderator]` | Manage Server | Shows staff activity, or one moderator's details. |
 | `/snapshot take\|list` | Administrator | Saves a snapshot now, or lists saved ones. |
 | `/restore [snapshot]` | Administrator | Recreates roles and channels deleted since a snapshot. Shows what's missing first. |
-| `/channel delete <channel>` | Manage Channels | Deletes a channel, or a category with or without its channels (it asks). Warns if the bot uses the channel. `/undo` recreates it, empty. |
+| `/delete channel\|category\|role` | Manage Channels (roles also need Manage Roles) | Deletes a channel, a category (it asks whether its channels go too) or a role. Warns if the bot uses it. `/undo` recreates it: channels come back empty, roles come back with their members and channel permissions. |
 | `/undo` | Manage Server | Reverses a staff action from the last 7 days. You only see actions whose command you are allowed to use. |
 | `/config modlog\|reports\|suggestions\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, report and suggestion channels, appeals, auto-role, warning escalation and game server. |
 

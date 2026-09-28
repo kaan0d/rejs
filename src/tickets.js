@@ -34,13 +34,13 @@ function panelRows(categories) {
 }
 
 const ticketButtons = (id, claimedBy) => new ActionRowBuilder().addComponents(
-  new ButtonBuilder().setCustomId(`ticket-claim:${id}`).setStyle(ButtonStyle.Secondary).setEmoji('🙋')
+  new ButtonBuilder().setCustomId(`ticket-claim:${id}`).setStyle(ButtonStyle.Secondary)
     .setLabel(claimedBy ? `Claimed by ${claimedBy}`.slice(0, 80) : 'Claim').setDisabled(Boolean(claimedBy)),
-  new ButtonBuilder().setCustomId(`ticket-close:${id}`).setLabel('Close').setEmoji('🔒').setStyle(ButtonStyle.Danger),
+  new ButtonBuilder().setCustomId(`ticket-close:${id}`).setLabel('Close').setStyle(ButtonStyle.Danger),
 );
 
 const ratingRow = (id) => new ActionRowBuilder().addComponents([1, 2, 3, 4, 5].map((n) =>
-  new ButtonBuilder().setCustomId(`ticket-rate:${id}-${n}`).setLabel('⭐'.repeat(n)).setStyle(ButtonStyle.Secondary)));
+  new ButtonBuilder().setCustomId(`ticket-rate:${id}-${n}`).setLabel(`${n} / 5`).setStyle(ButtonStyle.Secondary)));
 
 // Saves a transcript to the ticket log, asks the member for a rating, and archives the thread.
 async function closeTicket(client, ticket, closer, reason) {
@@ -63,7 +63,7 @@ async function closeTicket(client, ticket, closer, reason) {
 
   const summary = new EmbedBuilder()
     .setColor(BRAND)
-    .setTitle(`🎫 Ticket #${ticket.id} closed · ${label}`)
+    .setTitle(`Ticket #${ticket.id} closed · ${label}`)
     .addFields(
       { name: 'Opened by', value: `<@${ticket.user_id}>`, inline: true },
       { name: 'Claimed by', value: ticket.claimed_by ? `<@${ticket.claimed_by}>` : '—', inline: true },
@@ -86,7 +86,7 @@ async function closeTicket(client, ticket, closer, reason) {
   }).catch(() => {});
 
   if (thread) {
-    await thread.send(`🔒 Ticket closed by ${closer}${reason ? `: ${reason}` : '.'}`).catch(() => {});
+    await thread.send(`Ticket closed by ${closer}${reason ? `: ${reason}` : '.'}`).catch(() => {});
     await thread.setLocked(true).catch(() => {});
     await thread.setArchived(true).catch(() => {});
   }
@@ -102,7 +102,7 @@ async function checkInactive(client) {
     if (!t.warned_at && t.last_activity < now - hours * 3_600_000) {
       db.prepare('UPDATE tickets SET warned_at = ? WHERE id = ?').run(now, t.id);
       const thread = await client.channels.fetch(t.thread_id).catch(() => null);
-      await thread?.send(`⏰ <@${t.user_id}>, this ticket has been quiet for ${hours} hours. It closes <t:${unix(now + CLOSE_AFTER_WARNING_MS)}:R> unless someone replies.`).catch(() => {});
+      await thread?.send(`<@${t.user_id}>, this ticket has been quiet for ${hours} hours. It closes <t:${unix(now + CLOSE_AFTER_WARNING_MS)}:R> unless someone replies.`).catch(() => {});
     } else if (t.warned_at && t.warned_at < now - CLOSE_AFTER_WARNING_MS) {
       await closeTicket(client, t, client.user, 'No activity');
     }
@@ -150,7 +150,7 @@ const handlers = {
       content: `${i.user}${category.roleId ? ` <@&${category.roleId}>` : ''}`,
       embeds: [new EmbedBuilder()
         .setColor(BRAND)
-        .setTitle(`${category.emoji ?? '🎫'} ${category.label} · ticket #${id}`)
+        .setTitle(`${category.label} · Ticket #${id}`)
         .setDescription(reason)
         .setFooter({ text: 'Staff will be with you soon. Close the ticket when you are done.' })],
       components: [ticketButtons(id)],
@@ -167,7 +167,7 @@ const handlers = {
     if (ticket.claimed_by) return i.reply(ephemeral(`<@${ticket.claimed_by}> already claimed this ticket.`));
     db.prepare('UPDATE tickets SET claimed_by = ? WHERE id = ?').run(i.user.id, ticket.id);
     await i.update({ components: [ticketButtons(ticket.id, i.member.displayName)] });
-    await i.channel.send(`🙋 ${i.user} is handling this ticket.`);
+    await i.channel.send(`${i.user} is handling this ticket.`);
   },
 
   async 'ticket-close'(i, id) {
@@ -175,7 +175,7 @@ const handlers = {
     if (!ticket || ticket.status !== 'open') return i.reply(ephemeral('This ticket is already closed.'));
     const category = settings(i.guildId).categories.find((c) => c.id === ticket.category);
     if (ticket.user_id !== i.user.id && !isStaff(i.member, category)) return i.reply(ephemeral('Only the member who opened it or staff can close this ticket.'));
-    await i.reply(ephemeral('🔒 Closing and saving the transcript…'));
+    await i.reply(ephemeral('Closing and saving the transcript…'));
     await closeTicket(i.client, ticket, i.user, null);
   },
 
@@ -185,7 +185,7 @@ const handlers = {
     if (!ticket || ticket.user_id !== i.user.id) return i.reply(ephemeral("You can't rate this ticket."));
     if (ticket.rating) return i.update({ components: [] });
     db.prepare('UPDATE tickets SET rating = ? WHERE id = ?').run(stars, id);
-    await i.update({ content: `Thanks for rating us ${'⭐'.repeat(stars)}!`, components: [] });
+    await i.update({ content: `✅ Thanks for rating us ${stars} out of 5.`, components: [] });
   },
 };
 

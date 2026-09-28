@@ -26,12 +26,12 @@ function giveawayMessage(g) {
   return {
     embeds: [new EmbedBuilder()
       .setColor(g.ended ? Colors.Grey : BRAND)
-      .setTitle(`🎉 ${escapeMarkdown(g.prize)}`)
+      .setTitle(`${escapeMarkdown(g.prize)}`)
       .setDescription(lines.join('\n'))
       .setFooter({ text: `Giveaway #${g.id}` })
       .setTimestamp(g.ends_at)],
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`gw-enter:${g.id}`).setEmoji('🎉').setLabel(`Enter (${entryCount(g.id)})`)
+      new ButtonBuilder().setCustomId(`gw-enter:${g.id}`).setLabel(`Enter · ${entryCount(g.id)}`)
         .setStyle(ButtonStyle.Primary).setDisabled(Boolean(g.ended)),
     )],
     allowedMentions: { parse: [] },
@@ -66,8 +66,8 @@ async function endGiveaway(client, g, { reroll = 0 } = {}) {
   const message = await channel?.messages.fetch(g.message_id).catch(() => null);
   await message?.edit(giveawayMessage(updated)).catch(() => {});
   const text = winners.length
-    ? `🎉 ${reroll ? 'New winner' : 'Congratulations'} ${winners.map((id) => `<@${id}>`).join(', ')}! You won **${escapeMarkdown(g.prize)}**.`
-    : `😕 Nobody eligible entered the **${escapeMarkdown(g.prize)}** giveaway.`;
+    ? `${reroll ? 'New winner' : 'Congratulations'} ${winners.map((id) => `<@${id}>`).join(', ')}! You won **${escapeMarkdown(g.prize)}**.`
+    : `Nobody eligible entered the **${escapeMarkdown(g.prize)}** giveaway.`;
   await (message ? message.reply({ content: text, allowedMentions: { users: winners } }) : channel?.send(text)).catch(() => {});
   return winners;
 }
@@ -87,7 +87,7 @@ const handlers = {
     const { changes } = db.prepare('DELETE FROM giveaway_entries WHERE giveaway_id = ? AND user_id = ?').run(g.id, i.user.id);
     if (!changes) db.prepare('INSERT INTO giveaway_entries (giveaway_id, user_id) VALUES (?, ?)').run(g.id, i.user.id);
     await i.update(giveawayMessage(g));
-    await i.followUp(ephemeral(changes ? 'You left the giveaway.' : '🎉 You entered! Click again to leave.'));
+    await i.followUp(ephemeral(changes ? 'You left the giveaway.' : 'You entered! Click again to leave.'));
   },
 };
 

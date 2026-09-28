@@ -20,11 +20,11 @@ const getReport = (id) => db.prepare('SELECT * FROM reports WHERE id = ?').get(N
 const clip = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 const CATEGORIES = [
-  { label: 'Spam or advertising', value: 'Spam', emoji: { name: '📢' } },
-  { label: 'Harassment or hate', value: 'Harassment', emoji: { name: '😠' } },
-  { label: 'NSFW or gore', value: 'NSFW', emoji: { name: '🔞' } },
-  { label: 'Scam or phishing link', value: 'Scam', emoji: { name: '🎣' } },
-  { label: 'Something else', value: 'Other', emoji: { name: '❓' } },
+  { label: 'Spam or advertising', value: 'Spam' },
+  { label: 'Harassment or hate', value: 'Harassment' },
+  { label: 'NSFW or gore', value: 'NSFW' },
+  { label: 'Scam or phishing link', value: 'Scam' },
+  { label: 'Something else', value: 'Other' },
 ];
 
 // The report form: what the message said, a category to pick and optional details.
@@ -40,12 +40,12 @@ function actionRow(report, { deleted = false } = {}) {
   const row = new ActionRowBuilder();
   if (report.message_id) {
     row.addComponents(new ButtonBuilder().setCustomId(`report-delete:${report.id}`).setLabel(deleted ? 'Deleted' : 'Delete message')
-      .setEmoji('🗑️').setStyle(ButtonStyle.Secondary).setDisabled(deleted));
+      .setStyle(ButtonStyle.Secondary).setDisabled(deleted));
   }
   return row.addComponents(
-    new ButtonBuilder().setCustomId(`report-warn:${report.id}`).setLabel('Warn').setEmoji('⚠️').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`report-timeout:${report.id}`).setLabel('Timeout 1h').setEmoji('🔇').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`report-ban:${report.id}`).setLabel('Ban').setEmoji('🔨').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(`report-warn:${report.id}`).setLabel('Warn').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`report-timeout:${report.id}`).setLabel('Timeout 1h').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`report-ban:${report.id}`).setLabel('Ban').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId(`report-dismiss:${report.id}`).setLabel('Dismiss').setStyle(ButtonStyle.Secondary),
   );
 }
@@ -68,7 +68,7 @@ async function createReport(guild, reporter, target, reason, message = null) {
 
   const embed = new EmbedBuilder()
     .setColor(Colors.Orange)
-    .setTitle(`🚩 Report #${id}`)
+    .setTitle(`Report #${id}`)
     .addFields(
       { name: 'Reported', value: `${target} (${escapeMarkdown(target.tag)} · \`${target.id}\`)`, inline: true },
       { name: 'By', value: `${reporter}`, inline: true },
@@ -157,12 +157,12 @@ const handlers = {
   'report-timeout': reportButton(P.ModerateMembers, (i, report, member) => punish(i, report, member, 'timeout', async (user, reason) => {
     journal.timeout(member);
     await member.timeout(HOUR_MS, mod.auditReason(i.member, reason));
-    await mod.notify(user, `🔇 You were timed out in **${i.guild.name}** for 1 hour: ${reason}`);
+    await mod.notify(user, `You were timed out in **${i.guild.name}** for 1 hour: ${reason}`);
     return mod.recordCase(i.guild, { action: 'timeout', user, moderator: i.user, reason, durationMs: HOUR_MS });
   })),
 
   'report-ban': reportButton(P.BanMembers, (i, report, member) => punish(i, report, member, 'ban', async (user, reason) => {
-    if (member) await mod.notify(user, `🔨 You were banned from **${i.guild.name}**: ${reason}`);
+    if (member) await mod.notify(user, `You were banned from **${i.guild.name}**: ${reason}`);
     mod.closeBans(i.guildId, user.id);
     await i.guild.bans.create(user.id, { reason: mod.auditReason(i.member, reason) });
     journal.banned(user.id);

@@ -15,12 +15,12 @@ const V2 = MessageFlags.IsComponentsV2;
 // Discord allows 4000 characters of text per card message; stay a little under.
 const TEXT_BUDGET = 3900;
 
-// Plain replies get their color from the emoji they start with.
-function toneOf(text) {
-  if (/^(✅|🟢|🕊️|🎉|📸|💾|🛟)/u.test(text)) return Colors.Green;
-  if (/^(❌|⛔|🔴|🚨|☢️|💥)/u.test(text)) return Colors.Red;
-  if (/^(⚠️|⏰|🔇|⏳)/u.test(text)) return Colors.Orange;
-  return BRAND;
+// Plain replies start with a status marker (✅ ❌ ⛔ ⚠️) in the code. The marker picks the card's
+// color and is removed from the text, so members see a clean message on a green, red or orange card.
+const MARKERS = [['✅', Colors.Green], ['❌', Colors.Red], ['⛔', Colors.Red], ['⚠️', Colors.Orange]];
+function tone(text) {
+  const found = MARKERS.find(([marker]) => text.startsWith(marker));
+  return found ? { color: found[1], text: text.slice(found[0].length).trimStart() } : { color: BRAND, text };
 }
 
 const json = (e) => (e instanceof EmbedBuilder ? e.toJSON() : e?.data ?? e);
@@ -113,9 +113,10 @@ function modernize(input, { edit = false } = {}) {
     // Text next to embeds is usually a ping; it stays above the card so it still notifies.
     out.push(new TextDisplayBuilder().setContent(content));
   }
-  const containers = embeds.length
-    ? embeds.map(embedToContainer)
-    : [new ContainerBuilder().setAccentColor(toneOf(content)).addTextDisplayComponents(new TextDisplayBuilder().setContent(content))];
+  const plain = !embeds.length && tone(content);
+  const containers = plain
+    ? [new ContainerBuilder().setAccentColor(plain.color).addTextDisplayComponents(new TextDisplayBuilder().setContent(plain.text || content))]
+    : embeds.map(embedToContainer);
   const last = containers.at(-1);
 
   // Attached files must be shown by a component, or Discord hides them.

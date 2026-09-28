@@ -38,7 +38,7 @@ function register(client) {
     await send(after.guild, 'messages', {
       embeds: [new EmbedBuilder()
         .setColor(Colors.Yellow)
-        .setAuthor({ name: `✏️ Message edited · ${after.author.tag}`, iconURL: after.author.displayAvatarURL() })
+        .setAuthor({ name: `Message edited · ${after.author.tag}`, iconURL: after.author.displayAvatarURL() })
         .setDescription(`${who(after.author)} in ${after.channel} · [Jump](${after.url})`)
         .addFields({ name: 'Before', value: contentOf(before) }, { name: 'After', value: contentOf(after) })
         .setTimestamp()],
@@ -54,7 +54,7 @@ function register(client) {
     await send(message.guild, 'messages', {
       embeds: [new EmbedBuilder()
         .setColor(Colors.Red)
-        .setAuthor({ name: '🗑️ Message deleted', iconURL: message.author?.displayAvatarURL() })
+        .setAuthor({ name: 'Message deleted', iconURL: message.author?.displayAvatarURL() })
         .setDescription(`${who(message.author)} in ${message.channel}`)
         .addFields(
           { name: 'Content', value: contentOf(message) },
@@ -70,7 +70,7 @@ function register(client) {
       ? `[${m.id}] (not cached)`
       : `[${new Date(m.createdTimestamp).toISOString()}] ${m.author.tag}: ${client.hasMessageContent ? m.content : '(content unavailable)'}`);
     await send(channel.guild, 'messages', {
-      embeds: [new EmbedBuilder().setColor(Colors.Red).setTitle(`🧹 ${messages.size} messages bulk deleted`).setDescription(`In ${channel}`).setTimestamp()],
+      embeds: [new EmbedBuilder().setColor(Colors.Red).setTitle(`${messages.size} messages bulk deleted`).setDescription(`In ${channel}`).setTimestamp()],
       files: [new AttachmentBuilder(Buffer.from(lines.join('\n')), { name: `deleted-${channel.id}.txt` })],
     });
   });
@@ -81,7 +81,7 @@ function register(client) {
     await send(member.guild, 'members', {
       embeds: [new EmbedBuilder()
         .setColor(young ? Colors.Orange : Colors.Green)
-        .setAuthor({ name: `📥 Member joined${young ? ' · 🆕 new account' : ''}`, iconURL: member.displayAvatarURL() })
+        .setAuthor({ name: `Member joined${young ? ' · new account' : ''}`, iconURL: member.displayAvatarURL() })
         .setDescription(`${who(member.user)}\nAccount created <t:${unix(member.user.createdTimestamp)}:R>`)
         .setFooter({ text: `Member #${member.guild.memberCount}` })
         .setTimestamp()],
@@ -95,7 +95,7 @@ function register(client) {
     await send(member.guild, 'members', {
       embeds: [new EmbedBuilder()
         .setColor(Colors.Grey)
-        .setAuthor({ name: '📤 Member left', iconURL: member.user.displayAvatarURL() })
+        .setAuthor({ name: 'Member left', iconURL: member.user.displayAvatarURL() })
         .setDescription(`${who(member.user)}${joined}`)
         .addFields({ name: 'Roles', value: roles ? clip(roles, 1024) : roles === null ? '*Unknown*' : 'None' })
         .setTimestamp()],
@@ -106,16 +106,16 @@ function register(client) {
     if (before.partial || isIgnored(after.guild.id, null, after)) return;
     const fields = [];
     if (before.nickname !== after.nickname) {
-      fields.push({ name: '🏷️ Nickname', value: `${escapeMarkdown(before.nickname ?? '*none*')} → ${escapeMarkdown(after.nickname ?? '*none*')}` });
+      fields.push({ name: 'Nickname', value: `${escapeMarkdown(before.nickname ?? '*none*')} → ${escapeMarkdown(after.nickname ?? '*none*')}` });
     }
     const added = after.roles.cache.filter((r) => !before.roles.cache.has(r.id));
     const removed = before.roles.cache.filter((r) => !after.roles.cache.has(r.id));
     if (added.size || removed.size) {
-      fields.push({ name: '🎭 Roles', value: clip([...added.map((r) => `+ ${r}`), ...removed.map((r) => `− ${r}`)].join('\n'), 1024) });
+      fields.push({ name: 'Roles', value: clip([...added.map((r) => `+ ${r}`), ...removed.map((r) => `− ${r}`)].join('\n'), 1024) });
     }
     if (before.communicationDisabledUntilTimestamp !== after.communicationDisabledUntilTimestamp) {
       fields.push({
-        name: '🔇 Timeout',
+        name: 'Timeout',
         value: after.isCommunicationDisabled() ? `Until <t:${unix(after.communicationDisabledUntilTimestamp)}:f>` : 'Removed',
       });
     }
@@ -123,7 +123,7 @@ function register(client) {
     await send(after.guild, 'members', {
       embeds: [new EmbedBuilder()
         .setColor(BRAND)
-        .setAuthor({ name: '✳️ Member updated', iconURL: after.displayAvatarURL() })
+        .setAuthor({ name: 'Member updated', iconURL: after.displayAvatarURL() })
         .setDescription(who(after.user))
         .addFields(fields)
         .setTimestamp()],
@@ -133,9 +133,9 @@ function register(client) {
   client.on(Events.VoiceStateUpdate, async (before, after) => {
     if (before.channelId === after.channelId || after.member?.user.bot) return;
     if (isIgnored(after.guild.id, after.channel ?? before.channel, after.member)) return;
-    const text = !before.channel ? `🔊 Joined ${after.channel}`
-      : !after.channel ? `🔈 Left ${before.channel}`
-      : `🔀 Moved ${before.channel} → ${after.channel}`;
+    const text = !before.channel ? `Joined ${after.channel}`
+      : !after.channel ? `Left ${before.channel}`
+      : `Moved ${before.channel} → ${after.channel}`;
     await send(after.guild, 'voice', {
       embeds: [new EmbedBuilder()
         .setColor(!after.channel ? Colors.Grey : Colors.Green)

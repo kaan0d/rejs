@@ -26,14 +26,14 @@ async function giveaway(i) {
     const message = await channel.send(giveaways.giveawayMessage(giveaways.getGiveaway(id)));
     journal.created('message', message);
     db.prepare('UPDATE giveaways SET message_id = ? WHERE id = ?').run(message.id, id);
-    return i.reply(ephemeral(`🎉 Giveaway #${id} started in ${channel}: ${message.url}`));
+    return i.reply(ephemeral(`Giveaway #${id} started in ${channel}: ${message.url}`));
   }
 
   if (sub === 'list') {
     const rows = db.prepare('SELECT * FROM giveaways WHERE guild_id = ? AND ended = 0 ORDER BY ends_at').all(i.guildId);
     return i.reply({
       flags: MessageFlags.Ephemeral,
-      embeds: [new EmbedBuilder().setColor(BRAND).setTitle('🎉 Running giveaways')
+      embeds: [new EmbedBuilder().setColor(BRAND).setTitle('Running giveaways')
         .setDescription(rows.map((g) => `\`#${g.id}\` **${g.prize}** in <#${g.channel_id}> · ends <t:${unix(g.ends_at)}:R>`).join('\n') || 'None.')],
     });
   }
@@ -64,7 +64,7 @@ async function voice(i) {
     if (row.owner_id === i.user.id) return i.reply(ephemeral('This channel is already yours.'));
     if (channel.members.has(row.owner_id)) return i.reply(ephemeral(`<@${row.owner_id}> is still here, so the channel is theirs.`));
     tempvoice.setOwner(channel.id, i.user.id);
-    return i.reply(ephemeral('👑 The channel is yours now.'));
+    return i.reply(ephemeral('The channel is yours now.'));
   }
   if (row.owner_id !== i.user.id) return i.reply(ephemeral(`Only <@${row.owner_id}> can change this channel. If they left, use \`/voice claim\`.`));
 
@@ -85,12 +85,12 @@ async function voice(i) {
       case 'unlock':
         await channel.permissionOverwrites.edit(everyone, { Connect: sub === 'lock' ? false : null }, { reason });
         await channel.permissionOverwrites.edit(i.user.id, { Connect: true, ViewChannel: true }, { reason });
-        return i.reply(ephemeral(sub === 'lock' ? '🔒 Locked. Let people in with `/voice allow`.' : '🔓 Unlocked.'));
+        return i.reply(ephemeral(sub === 'lock' ? 'Locked. Let people in with `/voice allow`.' : 'Unlocked.'));
       case 'hide':
       case 'unhide':
         await channel.permissionOverwrites.edit(everyone, { ViewChannel: sub === 'hide' ? false : null }, { reason });
         await channel.permissionOverwrites.edit(i.user.id, { Connect: true, ViewChannel: true }, { reason });
-        return i.reply(ephemeral(sub === 'hide' ? '🙈 Hidden.' : '👀 Visible again.'));
+        return i.reply(ephemeral(sub === 'hide' ? 'Hidden.' : 'Visible again.'));
       case 'allow':
         await channel.permissionOverwrites.edit(user.id, { Connect: true, ViewChannel: true }, { reason });
         return i.reply(ephemeral(`✅ ${user} can join now.`));
@@ -99,12 +99,12 @@ async function voice(i) {
         await channel.permissionOverwrites.edit(user.id, { Connect: false }, { reason });
         const target = channel.members.get(user.id);
         await target?.voice.disconnect(reason);
-        return i.reply(ephemeral(`👢 ${user} was removed and can't rejoin.`));
+        return i.reply(ephemeral(`${user} was removed and can't rejoin.`));
       }
       case 'transfer':
         if (!channel.members.has(user.id) || user.bot) return i.reply(ephemeral('They need to be in the channel.'));
         tempvoice.setOwner(channel.id, user.id);
-        return i.reply(ephemeral(`👑 ${user} owns the channel now.`));
+        return i.reply(ephemeral(`${user} owns the channel now.`));
     }
   } catch (e) {
     // Discord allows only 2 channel renames per 10 minutes.
@@ -152,7 +152,7 @@ module.exports = [
       if (!i.guild.members.me.permissions.has([P.ManageChannels, P.MoveMembers])) return i.reply(ephemeral('I need Manage Channels and Move Members.'));
       const old = i.guild.channels.cache.get(getFeature(i.guildId, 'tempvoice', {}).hubId);
       const hub = await i.guild.channels.create({
-        name: '➕ Create a channel', type: ChannelType.GuildVoice, parent: i.options.getChannel('category')?.id ?? null, reason: 'Temp voice hub',
+        name: 'Create a channel', type: ChannelType.GuildVoice, parent: i.options.getChannel('category')?.id ?? null, reason: 'Temp voice hub',
       });
       journal.created('channel', hub);
       setFeature(i.guildId, 'tempvoice', { hubId: hub.id });

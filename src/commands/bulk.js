@@ -42,7 +42,7 @@ async function bulkRole(i, give) {
   const who = filter ? `members with ${filter}` : 'members';
   const button = await confirm(i, `${give ? 'Give' : 'Take'} ${role} ${give ? 'to' : 'from'} **${members.size}** ${who}?`, give ? 'Give role' : 'Take role');
   if (!button) return;
-  await button.update({ content: `⏳ Working on ${members.size} members…`, components: [] });
+  await button.update({ content: `Working on ${members.size} members…`, components: [] });
 
   // ponytail: one request per member; a 10k-member server takes minutes. Progress edits keep the user informed.
   let done = 0;
@@ -55,9 +55,9 @@ async function bulkRole(i, give) {
     } catch (e) {
       failed.push(`${member.user.tag}: ${e.message}`);
     }
-    if ((done + failed.length) % 25 === 0) await i.editReply(`⏳ ${done + failed.length}/${members.size}…`).catch(() => {});
+    if ((done + failed.length) % 25 === 0) await i.editReply(`${done + failed.length}/${members.size}…`).catch(() => {});
   }
-  await mod.modLog(i.guild, { title: `🏷️ Bulk role ${give ? 'given' : 'taken'}`, color: BRAND, moderator: i.user, extra: `**Role:** ${role}\n**Members:** ${done}` });
+  await mod.modLog(i.guild, { title: `Bulk role ${give ? 'given' : 'taken'}`, color: BRAND, moderator: i.user, extra: `**Role:** ${role}\n**Members:** ${done}` });
   await i.editReply(summary(done, failed, give ? 'Gave the role to' : 'Took the role from'));
 }
 
@@ -79,7 +79,7 @@ async function bulk(i) {
 
   const button = await confirm(i, `${sub[0].toUpperCase()}${sub.slice(1)} **${ids.length}** users? Reason: ${reason}`, `${sub[0].toUpperCase()}${sub.slice(1)} ${ids.length}`);
   if (!button) return;
-  await button.update({ content: `⏳ Working on ${ids.length} users…`, components: [] });
+  await button.update({ content: `Working on ${ids.length} users…`, components: [] });
 
   // One case per user, without flooding the mod log; the summary below covers them.
   const record = (action, user, extra = {}) =>
@@ -107,7 +107,7 @@ async function bulk(i) {
   }
 
   const verb = { ban: 'Banned', kick: 'Kicked', timeout: `Timed out for ${formatDuration(ms ?? 0)}` }[sub];
-  await mod.modLog(i.guild, { title: `🧨 Bulk ${sub}`, color: Colors.Red, moderator: i.user, reason, extra: `**Affected:** ${result.done} of ${ids.length}` });
+  await mod.modLog(i.guild, { title: `Bulk ${sub}`, color: Colors.Red, moderator: i.user, reason, extra: `**Affected:** ${result.done} of ${ids.length}` });
   await i.editReply(summary(result.done, result.failed, verb));
 }
 
