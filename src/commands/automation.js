@@ -1,10 +1,10 @@
 const {
-  SlashCommandBuilder, EmbedBuilder, ChannelType, Colors, InteractionContextType, MessageFlags, PermissionFlagsBits,
+  SlashCommandBuilder, EmbedBuilder, ChannelType, InteractionContextType, MessageFlags, PermissionFlagsBits,
   AutoModerationActionType, AutoModerationRuleEventType, AutoModerationRuleTriggerType,
 } = require('discord.js');
 const { db, getSettings } = require('../db');
 const { formatDuration } = require('../monitor');
-const { ephemeral, parseDuration } = require('../util');
+const { BRAND, ephemeral, parseDuration } = require('../util');
 
 const RULES = {
   words: 'rejs · Blocked words',
@@ -70,7 +70,7 @@ async function automod(i) {
   const { modlog_channel_id } = getSettings(i.guildId);
   return i.editReply({
     embeds: [new EmbedBuilder()
-      .setColor(Colors.Blurple)
+      .setColor(BRAND)
       .setTitle('🛡️ AutoMod rules')
       .setDescription(lines.join('\n') || 'No rules yet.')
       .setFooter({ text: modlog_channel_id ? 'Blocked messages are reported in the mod log.' : 'Set /config modlog to get alerts for blocked messages.' })],
@@ -109,7 +109,7 @@ async function schedule(i) {
   });
   return i.reply({
     flags: MessageFlags.Ephemeral,
-    embeds: [new EmbedBuilder().setColor(Colors.Blurple).setTitle('🗓️ Scheduled messages').setDescription(lines.join('\n\n') || 'None yet. Add one with `/schedule add`.')],
+    embeds: [new EmbedBuilder().setColor(BRAND).setTitle('🗓️ Scheduled messages').setDescription(lines.join('\n\n') || 'None yet. Add one with `/schedule add`.')],
   });
 }
 

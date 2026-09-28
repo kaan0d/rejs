@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, Colors, InteractionContextType, escap
 const { db, getSettings } = require('../db');
 const monitor = require('../monitor');
 
-const { ephemeral } = require('../util');
+const { BRAND, ephemeral } = require('../util');
 const NOT_SET_UP = 'No game server is set up here yet. An admin can run `/config monitor`.';
 const unix = (ms) => Math.floor(ms / 1000);
 // FiveM hostnames carry color codes like ^1.
@@ -66,7 +66,7 @@ module.exports = [
 
       await i.reply({
         embeds: [new EmbedBuilder()
-          .setColor(Colors.Blurple)
+          .setColor(BRAND)
           .setTitle(title)
           .setDescription(rows.length ? monitor.listLines(rows.map(line)) : 'Nobody here.')],
         allowedMentions: { parse: [] },
@@ -93,7 +93,7 @@ module.exports = [
         `\`${n + 1}.\` **${escapeMarkdown(row.name)}** · ${monitor.formatDuration(row.total)} over ${row.sessions} session${row.sessions === 1 ? '' : 's'}`);
       await i.reply({
         embeds: [new EmbedBuilder()
-          .setColor(Colors.Blurple)
+          .setColor(BRAND)
           .setTitle(search ? `⏱️ Playtime matching "${escapeMarkdown(search)}"` : '⏱️ Top playtime')
           .setDescription(lines.join('\n') || 'No sessions recorded yet.')],
       });

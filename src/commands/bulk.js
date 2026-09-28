@@ -1,11 +1,10 @@
 const { SlashCommandBuilder, Colors, InteractionContextType, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const { formatDuration } = require('../monitor');
-const { ephemeral, parseDuration, confirm } = require('../util');
+const { BRAND, ephemeral, parseDuration, confirm } = require('../util');
 const mod = require('../moderation');
 
 const MAX_IDS = 200;
 const idsOption = (o) => o.setName('users').setDescription('User IDs or mentions, separated by spaces or commas').setRequired(true);
-const reasonOption = (o) => o.setName('reason').setDescription('Why (shown in the mod log)').setMaxLength(400);
 
 function summary(done, failed, verb) {
   const lines = [`✅ ${verb} ${done}.`];
@@ -56,7 +55,7 @@ async function bulkRole(i, give) {
     }
     if ((done + failed.length) % 25 === 0) await i.editReply(`⏳ ${done + failed.length}/${members.size}…`).catch(() => {});
   }
-  await mod.modLog(i.guild, { title: `🏷️ Bulk role ${give ? 'given' : 'taken'}`, color: Colors.Blurple, moderator: i.user, extra: `**Role:** ${role}\n**Members:** ${done}` });
+  await mod.modLog(i.guild, { title: `🏷️ Bulk role ${give ? 'given' : 'taken'}`, color: BRAND, moderator: i.user, extra: `**Role:** ${role}\n**Members:** ${done}` });
   await i.editReply(summary(done, failed, give ? 'Gave the role to' : 'Took the role from'));
 }
 
@@ -80,19 +79,27 @@ async function bulk(i) {
   if (!button) return;
   await button.update({ content: `⏳ Working on ${ids.length} users…`, components: [] });
 
+  // One case per user, without flooding the mod log; the summary below covers them.
+  const record = (action, user, extra = {}) =>
+    mod.recordCase(i.guild, { action, user, moderator: i.user, reason: `Bulk: ${reason}`, log: false, ...extra });
+
   let result;
   if (sub === 'ban') {
     // Discord's bulk ban endpoint does up to 200 in one request, members or not.
     try {
       const { bannedUsers, failedUsers } = await i.guild.bans.bulkCreate(ids, { reason: audit, deleteMessageSeconds: 3600 });
       result = { done: bannedUsers.length, failed: failedUsers.map((id) => `\`${id}\`: already banned or protected`) };
+      for (const id of bannedUsers) {
+        mod.closeBans(i.guildId, id);
+        await record('ban', i.client.users.cache.get(id) ?? { id, tag: id });
+      }
     } catch (e) {
       return i.editReply(`❌ Bulk ban failed: ${e.message}`);
     }
   } else if (sub === 'kick') {
-    result = await eachMember(i, ids, 'kick', (m) => m.kick(audit));
+    result = await eachMember(i, ids, 'kick', async (m) => { await m.kick(audit); await record('kick', m.user); });
   } else {
-    result = await eachMember(i, ids, 'timeout', (m) => m.timeout(ms, audit));
+    result = await eachMember(i, ids, 'timeout', async (m) => { await m.timeout(ms, audit); await record('timeout', m.user, { durationMs: ms }); });
   }
 
   const verb = { ban: 'Banned', kick: 'Kicked', timeout: `Timed out for ${formatDuration(ms ?? 0)}` }[sub];
@@ -108,13 +115,13 @@ module.exports = [
       .setContexts(InteractionContextType.Guild)
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .addSubcommand((s) => s.setName('ban').setDescription(`Ban up to ${MAX_IDS} users and delete their last hour of messages`)
-        .addStringOption(idsOption).addStringOption(reasonOption))
+        .addStringOption(idsOption).addStringOption(mod.reasonOption))
       .addSubcommand((s) => s.setName('kick').setDescription(`Kick up to ${MAX_IDS} members`)
-        .addStringOption(idsOption).addStringOption(reasonOption))
+        .addStringOption(idsOption).addStringOption(mod.reasonOption))
       .addSubcommand((s) => s.setName('timeout').setDescription(`Time out up to ${MAX_IDS} members`)
         .addStringOption(idsOption)
         .addStringOption((o) => o.setName('duration').setDescription('e.g. 10m, 1h, 1d (max 28d)').setRequired(true))
-        .addStringOption(reasonOption))
+        .addStringOption(mod.reasonOption))
       .addSubcommand((s) => s.setName('role-give').setDescription('Give a role to every member')
         .addRoleOption((o) => o.setName('role').setDescription('Role to give').setRequired(true))
         .addRoleOption((o) => o.setName('only_with').setDescription('Only members who have this role')))
