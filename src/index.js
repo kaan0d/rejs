@@ -52,6 +52,10 @@ const STAFF_COMPONENTS = {
   'raid-end': 'Ended raid mode',
 };
 
+// Discord errors meaning the thing to reply to no longer exists: Unknown Channel, Unknown Message,
+// Unknown Webhook (the interaction token) and Unknown Interaction.
+const GONE = new Set([10003, 10008, 10015, 10062]);
+
 // Set once logged in, so crashes outside an interaction can still be reported.
 let activeClient = null;
 
@@ -156,6 +160,9 @@ async function main() {
     try {
       await handleInteraction(interaction);
     } catch (error) {
+      // The message, interaction or channel is already gone (deleted, or the 15-minute window
+      // passed). Nothing is left to answer, so it isn't worth an error report.
+      if (GONE.has(error?.code)) return console.warn(`Interaction ${interaction.commandName ?? interaction.customId}: target gone (${error.code})`);
       await ops.reportError(interaction.client, `Interaction ${interaction.commandName ?? interaction.customId} failed`, error);
       if (!interaction.isRepliable()) return;
       const reply = { content: 'Something went wrong. Please try again.', flags: MessageFlags.Ephemeral };
