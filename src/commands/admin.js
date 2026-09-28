@@ -3,6 +3,7 @@ const {
 } = require('discord.js');
 const { getSettings, setSetting, getFeature, setFeature } = require('../db');
 const monitor = require('../monitor');
+const setup = require('../setup');
 const { BRAND, ephemeral, parseDuration } = require('../util');
 
 const TEXT_CHANNELS = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
@@ -131,6 +132,15 @@ async function configure(i) {
 }
 
 module.exports = [
+  {
+    data: new SlashCommandBuilder()
+      .setName('setup')
+      .setDescription('Quick setup: log channels, verification and quarantine')
+      .setContexts(InteractionContextType.Guild)
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+    execute: (i) => i.reply({ ...setup.wizardMessage(i.guild), flags: MessageFlags.Ephemeral }),
+  },
+
   {
     data: new SlashCommandBuilder()
       .setName('config')

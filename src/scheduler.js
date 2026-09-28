@@ -3,6 +3,7 @@ const { expireBans } = require('./moderation');
 const tickets = require('./tickets');
 const { deliverReminders } = require('./automation');
 const { checkGiveaways } = require('./giveaways');
+const { purgeDeparted } = require('./ops');
 
 const TICK_MS = 30_000;
 
@@ -17,8 +18,8 @@ async function run(client) {
   }
 }
 
-// Scheduled messages, temporary bans, ticket auto-close, reminders and giveaways share one timer.
-const tick = (client) => Promise.all([run(client), expireBans(client), tickets.checkInactive(client), deliverReminders(client), checkGiveaways(client)]).catch((e) => console.error('Scheduler:', e));
+// Scheduled messages, temporary bans, ticket auto-close, reminders, giveaways and data cleanup share one timer.
+const tick = (client) => Promise.all([run(client), expireBans(client), tickets.checkInactive(client), deliverReminders(client), checkGiveaways(client), purgeDeparted()]).catch((e) => console.error('Scheduler:', e));
 const start = (client) => {
   tick(client);
   setInterval(() => tick(client), TICK_MS);

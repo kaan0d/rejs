@@ -31,6 +31,8 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 - **Giveaways.** A button to enter, several winners, role and account-age requirements, ending early and rerolls.
 - **Temporary voice channels.** Joining a hub creates a personal voice channel that disappears when empty. Owners rename it, set a limit, lock or hide it, let people in, remove people, and hand it over.
 - **FiveM server monitor.** Joins and leaves are grouped into one embed per update, with how long each player stayed. The bot posts once when the server goes offline and once when it comes back. Its status shows the player count, a voice channel name can show it too, and `/server` shows a 24-hour chart with the peak. `/playtime` ranks players from the recorded sessions, and `/watchlist` pings staff when chosen players join.
+- **Setup wizard.** When the bot joins a server it posts a short setup with buttons that create the staff log channels, a verification panel and the quarantine, all connected to the bot. `/setup` brings it back.
+- **Privacy by default.** When the bot is removed from a server, that server's data is kept for 30 days in case it comes back, then deleted.
 - **Per-server settings.** Each Discord server has its own channels, rules and game server.
 
 ## Setup
@@ -52,9 +54,11 @@ Requires **Node.js 22.13 or newer**. The bot uses Node's built-in SQLite, so the
    DEV_RESTART=false
    # Optional: your own server ID. Owner commands register only there
    DEV_GUILD_ID=
+   # Optional: a channel in your server for error reports. Without it, errors come by DM
+   ERROR_CHANNEL_ID=
    ```
 4. Run it with `npm start`, or on a server with pm2 (see below). Slash commands register automatically on startup.
-5. In Discord, run `/config modlog channel:#mod-log`, then `/logs set` for each log type and `/config appeals` if you take appeals. Run `/automod` after setting the mod log, so AutoMod alerts go there too.
+5. In Discord, run `/setup` and click the buttons, or set things up by hand with `/config modlog`, `/logs set` and `/config appeals`. Run `/automod` after the mod log exists, so AutoMod alerts go there too.
 
 The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.json`. It polls every 10 seconds. Turn it on with `/config monitor address:1.2.3.4:30120 channel:#server-log`.
 
@@ -113,6 +117,7 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/welcome set\|dm\|goodbye\|test\|off` | Manage Server | Sets the welcome, DM and goodbye messages. |
 | `/antinuke` | Server owner | Sets how many destructive actions an account may do before losing its roles. |
 | `/reasons add\|remove\|list` | Manage Server | Manages saved reasons. |
+| `/setup` | Manage Server | Shows the setup wizard. |
 | `/config modlog\|reports\|suggestions\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, report and suggestion channels, appeals, auto-role, warning escalation and game server. |
 
 You can change who sees each staff command in **Server Settings → Integrations**.
@@ -138,6 +143,11 @@ Only the bot's owner (the application owner in the Developer Portal, or its team
 | --- | --- |
 | `/restart` | Restarts the bot. |
 | `/update` | Pulls the latest commit from GitHub and restarts, whatever `DEV_RESTART` is set to. |
+| `/stats` | Servers, members, uptime, memory, database size, version and the most used commands. |
+| `/blacklist add\|remove\|list` | Makes the bot leave a server and refuse to rejoin it. |
+| `/announce <message>` | Posts an update to every server's mod log. |
+
+Unexpected errors are sent to `ERROR_CHANNEL_ID`, or to the owner by DM. The same error is reported at most once every 10 minutes.
 
 ## Development
 
