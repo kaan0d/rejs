@@ -32,7 +32,7 @@ function register(client) {
   };
 
   client.on(Events.MessageUpdate, async (before, after) => {
-    if (!after.inGuild() || after.author?.bot || !client.hasMessageContent) return;
+    if (after.partial || !after.inGuild() || after.author.bot || !client.hasMessageContent) return;
     if (!before.partial && before.content === after.content) return; // link previews loading, pins, etc.
     if (isIgnored(after.guildId, after.channel, after.member)) return;
     await send(after.guild, 'messages', {
@@ -46,7 +46,9 @@ function register(client) {
   });
 
   client.on(Events.MessageDelete, async (message) => {
-    if (!message.inGuild() || message.author?.bot) return;
+    // Uncached deletes carry no author or text, so "unknown deleted something" would only be noise;
+    // it would also log the bot's own sticky reposts after a restart.
+    if (message.partial || !message.inGuild() || message.author.bot) return;
     if (isIgnored(message.guildId, message.channel, message.member)) return;
     const files = message.attachments?.map((a) => a.name).join(', ');
     await send(message.guild, 'messages', {

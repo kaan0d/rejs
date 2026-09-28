@@ -74,7 +74,7 @@ async function createReport(guild, reporter, target, reason, message = null) {
 async function finish(i, report, status, label, color) {
   db.prepare('UPDATE reports SET status = ?, handled_by = ? WHERE id = ?').run(status, i.user.id, report.id);
   const embed = EmbedBuilder.from(i.message.embeds[0]).setColor(color).setFooter({ text: `${label} by ${i.user.tag}` });
-  await i.update({ embeds: [embed], components: [] });
+  await i.editReply({ embeds: [embed], components: [] });
   const reporter = await i.client.users.fetch(report.reporter_id).catch(() => null);
   await mod.notify(reporter, status === 'dismissed'
     ? `Thanks for your report #${report.id} in **${i.guild.name}**. Staff reviewed it and took no action.`
@@ -87,20 +87,33 @@ function reportButton(permission, run) {
     if (!i.memberPermissions?.has(permission)) return i.reply(ephemeral("You don't have permission to do that."));
     const report = getReport(id);
     if (!report || report.status !== 'open') return i.update({ components: [] });
+    // Punishing and DMing can take longer than Discord's 3-second reply window.
+    await i.deferUpdate();
     const member = await i.guild.members.fetch(report.target_id).catch(() => null);
     return run(i, report, member);
   };
 }
 
+// Marks the report as being handled, so two staff clicking at once can't both act on it.
+const claim = (id) => db.prepare("UPDATE reports SET status = 'handling' WHERE id = ? AND status = 'open'").run(id).changes > 0;
+const release = (id) => db.prepare("UPDATE reports SET status = 'open' WHERE id = ? AND status = 'handling'").run(id);
+
 async function punish(i, report, member, action, apply) {
   if (action !== 'ban' || member) {
     const error = mod.checkTarget(i.member, member, action);
-    if (error) return i.reply(ephemeral(error));
+    if (error) return i.followUp(ephemeral(error));
   }
-  const user = member?.user ?? await i.client.users.fetch(report.target_id);
-  const reason = `Report #${report.id}: ${report.reason}`.slice(0, 400);
-  const number = await apply(user, reason);
-  await finish(i, report, 'handled', `${mod.ACTIONS[action].label} (case #${number})`, Colors.Green);
+  if (!claim(report.id)) return i.followUp(ephemeral('Someone else is already handling this report.'));
+  try {
+    const user = member?.user ?? await i.client.users.fetch(report.target_id);
+    const reason = `Report #${report.id}: ${report.reason}`.slice(0, 400);
+    const number = await apply(user, reason);
+    await finish(i, report, 'handled', `${mod.ACTIONS[action].label} (case #${number})`, Colors.Green);
+  } catch (error) {
+    // Let someone try again after a failed ban or timeout.
+    release(report.id);
+    throw error;
+  }
 }
 
 const handlers = {
@@ -115,8 +128,8 @@ const handlers = {
   'report-delete': reportButton(P.ManageMessages, async (i, report) => {
     const channel = i.guild.channels.cache.get(report.channel_id);
     const ok = await channel?.messages.delete(report.message_id).then(() => true, () => false);
-    if (!ok) return i.reply(ephemeral('That message is already gone.'));
-    await i.update({ components: [actionRow(report, { deleted: true })] });
+    if (!ok) return i.followUp(ephemeral('That message is already gone.'));
+    await i.editReply({ components: [actionRow(report, { deleted: true })] });
   }),
 
   'report-warn': reportButton(P.ModerateMembers, (i, report, member) => punish(i, report, member, 'warn', async (user, reason) => {
@@ -139,7 +152,9 @@ const handlers = {
     return mod.recordCase(i.guild, { action: 'ban', user, moderator: i.user, reason });
   })),
 
-  'report-dismiss': reportButton(P.ModerateMembers, (i, report) => finish(i, report, 'dismissed', 'Dismissed', Colors.Grey)),
+  'report-dismiss': reportButton(P.ModerateMembers, (i, report) => (claim(report.id)
+    ? finish(i, report, 'dismissed', 'Dismissed', Colors.Grey)
+    : i.followUp(ephemeral('Someone else is already handling this report.')))),
 };
 
 // Right-click → Apps → Report message: remember the message, then ask why.

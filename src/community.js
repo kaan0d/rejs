@@ -175,12 +175,14 @@ const handlers = {
     const menuIds = menu.roles.map((r) => r.roleId);
     const { add, remove } = roleChanges(menuIds, i.member.roles.cache, i.values, menu.max_choices === 1);
     const usable = (ids) => ids.filter((id) => i.guild.roles.cache.get(id)?.editable);
-    await i.deferReply({ flags: MessageFlags.Ephemeral });
-    if (add.length) await i.member.roles.add(usable(add), 'Role menu');
-    if (remove.length) await i.member.roles.remove(usable(remove), 'Role menu');
-    const text = [add.length && `Added ${add.map((id) => `<@&${id}>`).join(', ')}`, remove.length && `Removed ${remove.map((id) => `<@&${id}>`).join(', ')}`]
-      .filter(Boolean).join('\n');
-    await i.editReply(text || 'Nothing changed.');
+    const [added, removed] = [usable(add), usable(remove)];
+    // Re-rendering the menu clears the member's pick, so picking the same role again (to remove it) works.
+    await i.update(menuMessage(i.guild, menu));
+    if (added.length) await i.member.roles.add(added, 'Role menu');
+    if (removed.length) await i.member.roles.remove(removed, 'Role menu');
+    const list = (ids) => ids.map((id) => `<@&${id}>`).join(', ');
+    const text = [added.length && `Added ${list(added)}`, removed.length && `Removed ${list(removed)}`].filter(Boolean).join('\n');
+    await i.followUp(ephemeral(text || "Nothing changed. I can't manage those roles; ask the staff."));
   },
   'sugg-up': (i, id) => vote(i, id, 1),
   'sugg-down': (i, id) => vote(i, id, -1),
@@ -188,11 +190,13 @@ const handlers = {
 
 function register(client) {
   client.on(Events.GuildMemberAdd, (member) => {
-    // No welcome spam during a raid.
-    if (getFeature(member.guild.id, 'raid_state', {}).active) return;
+    // No welcome spam during a raid, and no welcomes for bots.
+    if (member.user.bot || getFeature(member.guild.id, 'raid_state', {}).active) return;
     sendWelcome(member).catch((e) => console.error('Welcome:', e));
   });
-  client.on(Events.GuildMemberRemove, (member) => sendGoodbye(member).catch((e) => console.error('Goodbye:', e)));
+  client.on(Events.GuildMemberRemove, (member) => {
+    if (!member.user.bot) sendGoodbye(member).catch((e) => console.error('Goodbye:', e));
+  });
 }
 
 module.exports = {

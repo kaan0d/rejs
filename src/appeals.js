@@ -31,6 +31,8 @@ async function decide(i, appealId, accept) {
   const appeal = db.prepare('SELECT * FROM appeals WHERE id = ?').get(Number(appealId));
   if (!appeal || appeal.guild_id !== i.guildId || appeal.status !== 'pending') return i.reply(ephemeral('This appeal was already decided.'));
   db.prepare('UPDATE appeals SET status = ? WHERE id = ?').run(accept ? 'accepted' : 'denied', appeal.id);
+  // Unbanning, the invite and the DM can take longer than Discord's 3-second reply window.
+  await i.deferUpdate();
 
   const user = await i.client.users.fetch(appeal.user_id);
   if (accept) {
@@ -46,7 +48,7 @@ async function decide(i, appealId, accept) {
   const embed = EmbedBuilder.from(i.message.embeds[0])
     .setColor(accept ? Colors.Green : Colors.Red)
     .setFooter({ text: `${accept ? 'Accepted' : 'Denied'} by ${i.user.tag}` });
-  await i.update({ embeds: [embed], components: [] });
+  await i.editReply({ embeds: [embed], components: [] });
 }
 
 // Keyed by the part of the custom ID before the colon. Custom IDs carry their own data,

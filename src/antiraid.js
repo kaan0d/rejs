@@ -116,8 +116,10 @@ async function onJoin(member) {
 const handlers = {
   async 'raid-end'(i) {
     if (!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return i.reply(ephemeral('You need Manage Server to end raid mode.'));
+    // Unlocking many channels takes longer than Discord's 3-second reply window.
+    await i.deferUpdate();
     const summary = await endRaid(i.guild, i.user);
-    await i.update({ components: [] });
+    await i.editReply({ components: [] });
     await i.followUp(ephemeral(summary ? `✅ Raid mode ended: ${summary}.` : 'Raid mode was already over.'));
   },
 };
