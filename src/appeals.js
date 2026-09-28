@@ -1,10 +1,11 @@
 const {
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, Colors,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputStyle, EmbedBuilder, Colors,
   PermissionFlagsBits,
 } = require('discord.js');
 const { db, getSettings } = require('./db');
 const { BRAND, ephemeral } = require('./util');
 const mod = require('./moderation');
+const ui = require('./ui');
 const journal = require('./journal');
 
 const unix = (ms) => Math.floor(ms / 1000);
@@ -46,10 +47,7 @@ async function decide(i, appealId, accept) {
     await mod.notify(user, `Your ban appeal to **${i.guild.name}** was denied.`);
   }
 
-  const embed = EmbedBuilder.from(i.message.embeds[0])
-    .setColor(accept ? Colors.Green : Colors.Red)
-    .setFooter({ text: `${accept ? 'Accepted' : 'Denied'} by ${i.user.tag}` });
-  await i.editReply({ embeds: [embed], components: [] });
+  await i.editReply(ui.finishCard(i.message, { status: `${accept ? '✅ Accepted' : '❌ Denied'} by ${i.user.tag}`, color: accept ? Colors.Green : Colors.Red }));
 }
 
 // Keyed by the part of the custom ID before the colon. Custom IDs carry their own data,
@@ -64,12 +62,9 @@ const handlers = {
     await i.showModal(new ModalBuilder()
       .setCustomId(`appeal-form:${guildId}`)
       .setTitle('Ban appeal')
-      .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-        .setCustomId('text')
-        .setLabel('Why should you be unbanned?')
-        .setStyle(TextInputStyle.Paragraph)
-        .setMinLength(20)
-        .setMaxLength(1500))));
+      .addTextDisplayComponents((t) => t.setContent(`You were banned for: **${ban.reason.slice(0, 300)}**\nStaff read every appeal. Be honest and specific.`))
+      .addLabelComponents((l) => l.setLabel('Why should you be unbanned?').setDescription('What happened, and what will be different')
+        .setTextInputComponent((t) => t.setCustomId('text').setStyle(TextInputStyle.Paragraph).setMinLength(20).setMaxLength(1500))));
   },
 
   async 'appeal-form'(i, guildId) {

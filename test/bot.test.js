@@ -542,3 +542,76 @@ test('restore recreates deleted roles and channels, gives roles back and repoint
   assert.equal(getSettings('rs-g').modlog_channel_id, newLog.id);
   assert.deepEqual(snapshots.missing(guild, snapshots.list('rs-g')[0]), { roles: [], channels: [] });
 });
+
+const ui = require('../src/ui');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ComponentType: CT, MessageFlags: MF, Colors: C } = require('discord.js');
+
+const types = (components) => components.map((c) => c.type);
+
+test('plain replies become a colored card, keeping ephemeral', () => {
+  const out = ui.modernize({ content: '✅ Saved.', flags: MF.Ephemeral });
+  assert.equal(out.content, undefined);
+  assert.equal(out.flags & MF.IsComponentsV2, MF.IsComponentsV2);
+  assert.equal(out.flags & MF.Ephemeral, MF.Ephemeral);
+  assert.deepEqual(types(out.components), [CT.Container]);
+  assert.equal(out.components[0].accent_color, C.Green);
+  assert.equal(out.components[0].components[0].content, '✅ Saved.');
+  assert.equal(ui.modernize('❌ Nope').components[0].accent_color, C.Red);
+});
+
+test('embeds become cards with a thumbnail section, fields, footer and the buttons inside', () => {
+  const embed = new EmbedBuilder().setColor(0x123456).setTitle('User').setDescription('About them')
+    .setThumbnail('https://cdn.example/a.png').addFields({ name: 'Level', value: '5', inline: true }, { name: 'Roles', value: 'a\nb' })
+    .setFooter({ text: 'ID 1' }).setTimestamp(1000);
+  const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('x').setLabel('X').setStyle(ButtonStyle.Primary));
+  const out = ui.modernize({ content: '<@1>', embeds: [embed], components: [row], files: [new AttachmentBuilder(Buffer.from('hi'), { name: 't.html' })] });
+
+  assert.deepEqual(types(out.components), [CT.TextDisplay, CT.Container]);
+  assert.equal(out.components[0].content, '<@1>');
+  const card = out.components[1];
+  assert.equal(card.accent_color, 0x123456);
+  assert.deepEqual(types(card.components), [CT.Section, CT.Separator, CT.TextDisplay, CT.Separator, CT.TextDisplay, CT.File, CT.ActionRow]);
+  assert.match(card.components[0].components[0].content, /^### User\nAbout them$/);
+  assert.equal(card.components[0].accessory.media.url, 'https://cdn.example/a.png');
+  assert.equal(card.components[2].content, '**Level** · 5\n**Roles**\na\nb');
+  assert.equal(card.components[4].content, '-# ID 1 · <t:1:f>');
+  assert.equal(card.components[5].file.url, 'attachment://t.html');
+});
+
+test('edits drop the ephemeral flag, cards pass through, and long text is shortened', () => {
+  assert.equal(ui.modernize({ content: 'x', flags: MF.Ephemeral }, { edit: true }).flags & MF.Ephemeral, 0);
+  const already = { components: [], flags: MF.IsComponentsV2 };
+  assert.deepEqual(ui.modernize(already), already);
+  assert.equal(ui.modernize({ components: [] }), null);
+  const long = ui.modernize({ embeds: [new EmbedBuilder().setDescription('a'.repeat(4000)).addFields({ name: 'b', value: 'c'.repeat(1000) })] });
+  const text = JSON.stringify(long.components).match(/"content":"([^"]*)"/g).join('').length;
+  assert.ok(text < 4000);
+});
+
+test('finishing a card swaps its buttons for a status line and recolors it', () => {
+  const card = ui.modernize({ embeds: [new EmbedBuilder().setTitle('Report #1')], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('a').setLabel('A').setStyle(ButtonStyle.Primary))] });
+  const message = { flags: { has: (f) => f === MF.IsComponentsV2 }, content: '', embeds: [], components: card.components.map((c) => ({ toJSON: () => structuredClone(c) })) };
+  const done = ui.finishCard(message, { status: 'Handled by mod', color: C.Green });
+  const container = done.components[0];
+  assert.equal(container.accent_color, C.Green);
+  assert.ok(!container.components.some((c) => c.type === CT.ActionRow));
+  assert.equal(container.components.at(-1).content, '-# Handled by mod');
+
+  const legacy = { flags: { has: () => false }, content: '', embeds: [new EmbedBuilder().setTitle('Old').toJSON()], components: [] };
+  const old = ui.finishCard(legacy, { status: 'Done', color: C.Red });
+  assert.equal(old.embeds[0].data.footer.text, 'Done');
+});
+
+test('emojis typed by staff are checked before they reach a button or menu', () => {
+  const { toEmoji } = require('../src/util');
+  assert.deepEqual(toEmoji('🎫'), { name: '🎫' });
+  assert.deepEqual(toEmoji('🇪🇺'), { name: '🇪🇺' });
+  assert.deepEqual(toEmoji('<:rejs:123456789012345678>'), { id: '123456789012345678', name: 'rejs', animated: false });
+  assert.deepEqual(toEmoji('<a:party:123456789012345678>').animated, true);
+  for (const bad of [':smile:', 'abc', '', null]) assert.equal(toEmoji(bad), null, String(bad));
+  const tickets = require('../src/tickets');
+  const rows = tickets.panelRows([{ id: 'a', label: 'Support', emoji: '🛠️' }, { id: 'b', label: 'Bad', emoji: ':x:' }]);
+  const json = rows[0].toJSON().components;
+  assert.equal(json[0].emoji.name, '🛠️');
+  assert.equal(json[1].emoji, undefined);
+});

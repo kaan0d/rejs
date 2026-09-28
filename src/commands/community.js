@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, ChannelType, InteractionContextType, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 const { db, getFeature, setFeature } = require('../db');
-const { BRAND, ephemeral } = require('../util');
+const { BRAND, ephemeral, toEmoji } = require('../util');
 const community = require('../community');
 const journal = require('../journal');
 
@@ -35,6 +35,8 @@ async function rolemenu(i) {
     if (role.managed || role.id === i.guildId || !role.editable) return i.reply(ephemeral(`I can't give ${role}. Pick a normal role below mine.`));
     if (i.user.id !== i.guild.ownerId && role.position >= i.member.roles.highest.position) return i.reply(ephemeral(`${role} is equal to or above your highest role.`));
     if (menu.roles.length >= 25) return i.reply(ephemeral('A menu holds up to 25 roles.'));
+    const emoji = i.options.getString('emoji');
+    if (emoji && !toEmoji(emoji)) return i.reply(ephemeral('That emoji won\'t work in a menu. Use a normal emoji like 🇪🇺, or a server emoji picked from the emoji menu.'));
     menu.roles = menu.roles.filter((r) => r.roleId !== role.id);
     menu.roles.push({ roleId: role.id, emoji: i.options.getString('emoji'), description: i.options.getString('description') });
   } else {

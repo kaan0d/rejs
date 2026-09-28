@@ -18,6 +18,7 @@ const tempvoice = require('./tempvoice');
 const ops = require('./ops');
 const setup = require('./setup');
 const journal = require('./journal');
+const ui = require('./ui');
 const mod = require('./moderation');
 const updater = require('./updater');
 
@@ -101,6 +102,8 @@ async function handleInteraction(interaction) {
 }
 
 async function main() {
+  // Every reply, DM and channel message goes out as a Components V2 card.
+  ui.install();
   const token = process.env.DISCORD_TOKEN;
   if (!token) throw new Error('DISCORD_TOKEN is missing. Put it in the .env file.');
   const messageContent = await checkIntents(token);

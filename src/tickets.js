@@ -1,9 +1,9 @@
 const {
-  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputStyle,
   ChannelType, PermissionFlagsBits, AttachmentBuilder, Events, MessageFlags,
 } = require('discord.js');
 const { db, getFeature } = require('./db');
-const { BRAND, ephemeral } = require('./util');
+const { BRAND, ephemeral, toEmoji } = require('./util');
 const { formatDuration } = require('./monitor');
 const { transcriptHtml, fetchAll } = require('./transcript');
 
@@ -26,7 +26,8 @@ function panelRows(categories) {
   for (let n = 0; n < categories.length; n += 5) {
     rows.push(new ActionRowBuilder().addComponents(categories.slice(n, n + 5).map((c) => {
       const button = new ButtonBuilder().setCustomId(`ticket-open:${c.id}`).setLabel(c.label).setStyle(ButtonStyle.Primary);
-      return c.emoji ? button.setEmoji(c.emoji) : button;
+      const emoji = toEmoji(c.emoji);
+      return emoji ? button.setEmoji(emoji) : button;
     })));
   }
   return rows;
@@ -117,12 +118,9 @@ const handlers = {
     await i.showModal(new ModalBuilder()
       .setCustomId(`ticket-form:${categoryId}`)
       .setTitle(category.label.slice(0, 45))
-      .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-        .setCustomId('reason')
-        .setLabel('What do you need help with?')
-        .setStyle(TextInputStyle.Paragraph)
-        .setMinLength(5)
-        .setMaxLength(1000))));
+      .addTextDisplayComponents((t) => t.setContent('A private thread opens where only you and the staff can talk. Tell us a bit first, so the right person can help.'))
+      .addLabelComponents((l) => l.setLabel('What do you need help with?').setDescription('Include names, times or links if they matter')
+        .setTextInputComponent((t) => t.setCustomId('reason').setStyle(TextInputStyle.Paragraph).setMinLength(5).setMaxLength(1000))));
   },
 
   async 'ticket-form'(i, categoryId) {

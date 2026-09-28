@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, parseEmoji } = require('discord.js');
 
 // Info embeds use the brand color; success, warning and error keep green, orange and red.
 const BRAND = 0x2B2D31;
@@ -34,4 +34,14 @@ async function confirm(i, content, label) {
   return null;
 }
 
-module.exports = { BRAND, ephemeral, parseDuration, confirm };
+// Turns what someone typed into an emoji for buttons and menus, or null when it isn't one.
+// Accepts a server emoji (<:name:id>) or a normal emoji; shortcodes like :smile: don't work here.
+function toEmoji(text) {
+  const value = text?.trim();
+  if (!value) return null;
+  const custom = parseEmoji(value);
+  if (custom?.id) return { id: custom.id, name: custom.name, animated: custom.animated };
+  return /^(\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]️?⃣)/u.test(value) ? { name: value } : null;
+}
+
+module.exports = { BRAND, ephemeral, parseDuration, confirm, toEmoji };

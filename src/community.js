@@ -2,7 +2,7 @@ const {
   EmbedBuilder, Colors, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, Events, MessageFlags, escapeMarkdown,
 } = require('discord.js');
 const { db, getFeature } = require('./db');
-const { BRAND, ephemeral } = require('./util');
+const { BRAND, ephemeral, toEmoji } = require('./util');
 const mod = require('./moderation');
 
 // ---- Role menus -----------------------------------------------------------------------------
@@ -29,7 +29,7 @@ function menuMessage(guild, menu) {
     .addOptions(roles.map((r) => ({
       label: guild.roles.cache.get(r.roleId).name.slice(0, 100),
       value: r.roleId,
-      ...(r.emoji && { emoji: r.emoji }),
+      ...(toEmoji(r.emoji) && { emoji: toEmoji(r.emoji) }),
       ...(r.description && { description: r.description.slice(0, 100) }),
     })));
   return { embeds: [embed], components: [new ActionRowBuilder().addComponents(select)], allowedMentions: { parse: [] } };
