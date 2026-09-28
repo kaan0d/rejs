@@ -176,3 +176,70 @@ test('age gate only quarantines new human accounts when on', () => {
   assert.equal(gate.shouldQuarantine(member(30)), false);
   assert.equal(gate.shouldQuarantine(member(1, true)), false);
 });
+
+const community = require('../src/community');
+const tickets = require('../src/tickets');
+const reports = require('../src/reports');
+const { transcriptHtml } = require('../src/transcript');
+
+test('role menus toggle roles, and pick-one menus swap them', () => {
+  const held = new Set(['a']);
+  assert.deepEqual(community.roleChanges(['a', 'b', 'c'], held, ['a', 'b'], false), { add: ['b'], remove: ['a'] });
+  assert.deepEqual(community.roleChanges(['a', 'b', 'c'], held, ['c'], true), { add: ['c'], remove: ['a'] });
+  assert.deepEqual(community.roleChanges(['a', 'b', 'c'], held, ['a'], true), { add: [], remove: ['a'] });
+});
+
+test('welcome variables are filled in', () => {
+  const member = { toString: () => '<@1>', user: { username: 'kaan_' }, guild: { name: 'Respy', memberCount: 42 } };
+  assert.equal(community.fill('Hi {user} ({username}), welcome to {server}. #{count}', member), String.raw`Hi <@1> (kaan\_), welcome to Respy. #42`);
+});
+
+test('transcripts escape HTML from messages', () => {
+  const html = transcriptHtml({
+    title: 'T', subtitle: 'S',
+    messages: [{ content: '<script>alert(1)</script> **hi**', embeds: [], attachments: new Map(), createdTimestamp: 0,
+      author: { bot: false, username: 'x', displayName: 'x', displayAvatarURL: () => 'a.png' } }],
+  });
+  assert.ok(!html.includes('<script>alert'));
+  assert.ok(html.includes('&lt;script&gt;') && html.includes('<b>hi</b>'));
+});
+
+test('ticket category names become stable ids', () => {
+  assert.equal(tickets.slug('Report a Player!'), 'report-a-player');
+  assert.equal(tickets.slug('🛠️'), 'ticket');
+});
+
+test('quiet tickets get a warning, then close a day later', async () => {
+  const sent = [];
+  const thread = { send: async (t) => sent.push(t), setLocked: async () => {}, setArchived: async () => {}, messages: { fetch: async () => new Map() } };
+  const client = {
+    user: { tag: 'bot', toString: () => '<@bot>' },
+    guilds: { cache: new Map() },
+    channels: { fetch: async () => thread },
+    users: { fetch: async () => null },
+  };
+  setFeature('tk-g', 'tickets', { ...tickets.DEFAULTS, inactiveHours: 1 });
+  const old = Date.now() - 2 * 3_600_000;
+  const { lastInsertRowid: id } = db.prepare("INSERT INTO tickets (guild_id, thread_id, user_id, category, reason, created_at, last_activity) VALUES ('tk-g', 'th1', 'u1', 'support', 'help', ?, ?)").run(old, old);
+  await tickets.checkInactive(client);
+  assert.match(sent[0], /quiet for 1 hours/);
+  await tickets.checkInactive(client);
+  assert.equal(sent.length, 1);
+  db.prepare('UPDATE tickets SET warned_at = ? WHERE id = ?').run(Date.now() - 25 * 3_600_000, id);
+  await tickets.checkInactive(client);
+  assert.equal(tickets.getTicket(id).status, 'closed');
+  assert.match(sent.at(-1), /closed by <@bot>: No activity/);
+});
+
+test('reports need a channel, block self-reports and have a cooldown', async () => {
+  const posted = [];
+  const guild = { id: 'rp-g', channels: { cache: new Map([['rc', { send: async (p) => posted.push(p) }]]) } };
+  const reporter = { id: 'r1', toString: () => '<@r1>' };
+  const target = { id: 't1', tag: 't#1', bot: false, toString: () => '<@t1>', displayAvatarURL: () => 'https://cdn.example/a.png' };
+  assert.match(await reports.createReport(guild, reporter, target, 'spam'), /not set up/);
+  setFeature('rp-g', 'reports', { channelId: 'rc' });
+  assert.match(await reports.createReport(guild, reporter, reporter, 'x'), /yourself/);
+  assert.equal(await reports.createReport(guild, reporter, target, 'spam'), null);
+  assert.equal(posted.length, 1);
+  assert.match(await reports.createReport(guild, reporter, target, 'again'), /report again/);
+});

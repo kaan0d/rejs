@@ -16,6 +16,11 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 - **Anti-spam.** Floods, repeated messages, all-caps, emoji walls and links (block all, or allow only chosen domains). Spam is deleted and counts as a warning, so escalation takes over. Needs the Message Content intent.
 - **Age gate.** Accounts younger than a set age get a Quarantine role that only sees a quarantine channel. The bot creates both. Staff approve, kick or ban them with buttons in the mod log.
 - **Verification.** A panel with a button that gives members a role.
+- **Tickets.** A panel with a button per topic (Support, Report a player, ...). Each ticket opens as a private thread after a short form, one per member. Staff claim tickets, quiet tickets are warned and closed automatically, an HTML transcript goes to a log channel, and the member rates the help from 1 to 5 stars.
+- **Reports.** Right-click a message → Apps → Report message, or `/report`. Staff get the report with Delete, Warn, Timeout 1h, Ban and Dismiss buttons, and the reporter hears back when it's handled.
+- **Role menus.** Dropdowns where members pick their own roles, including pick-one menus for things like regions or colors.
+- **Welcome and goodbye.** Editable messages with `{user}`, `{server}` and `{count}`, shown as a card with the member's avatar, plus an optional welcome DM. Skipped during a raid.
+- **Suggestions.** `/suggest` posts to a channel with up and down vote buttons and a discussion thread. Staff mark suggestions accepted, denied or considering, and the author gets a DM. Members can post anonymously; staff can still see who.
 - **Bulk actions.** Ban up to 200 user IDs in one request (useful in a raid), kick or time out a list of members, or give or take a role across the whole server. Every bulk action asks for confirmation first.
 - **AutoMod.** `/automod` switches on Discord's own filters: blocked words, invite links, mention spam and spam. Discord enforces them even while the bot is offline.
 - **Auto-role.** New members get a role when they join, or after they accept the rules.
@@ -28,7 +33,7 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 Requires **Node.js 22.13 or newer**. The bot uses Node's built-in SQLite, so there is nothing to compile.
 
 1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications). Under **Bot**, turn on **Server Members Intent** (required). Turn on **Message Content Intent** too if you want message text in the logs. Without it the bot still runs, but deleted messages are logged without their text and edits are not logged.
-2. Invite the bot with the `bot` and `applications.commands` scopes. Giving it **Administrator** is simplest. At minimum it needs: View Channels, Send Messages, Embed Links, Attach Files, Manage Messages, Manage Roles, Manage Channels, Manage Nicknames, Moderate Members, Kick Members, Ban Members, Create Invite (for accepted appeals), View Audit Log (for anti-nuke) and Manage Server (for AutoMod, bulk bans and raising the verification level during a raid). Put the bot's role above every role it should manage.
+2. Invite the bot with the `bot` and `applications.commands` scopes. Giving it **Administrator** is simplest. At minimum it needs: View Channels, Send Messages, Embed Links, Attach Files, Manage Messages, Manage Roles, Manage Channels, Manage Nicknames, Moderate Members, Kick Members, Ban Members, Create Invite (for accepted appeals), View Audit Log (for anti-nuke), Create Public Threads, Create Private Threads, Send Messages in Threads and Manage Threads (for tickets and suggestions) and Manage Server (for AutoMod, bulk bans and raising the verification level during a raid). Put the bot's role above every role it should manage.
 3. Install and configure:
    ```sh
    git clone https://github.com/kaan0d/rejs.git
@@ -84,9 +89,16 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/agegate set\|off` | Manage Server | Quarantines accounts younger than a minimum age. |
 | `/verification setup\|off` | Manage Server | Posts a verify button that gives a role. |
 | `/approve <user>` | Moderate Members | Lets a quarantined member in. |
+| `/report <user> <reason>` | Everyone | Reports a member to the staff. Right-click a message → Apps → Report message works too. |
+| `/suggest <idea> [anonymous]` | Everyone | Posts a suggestion. |
+| `/suggestion accepted\|denied\|considering\|author` | Manage Messages | Answers a suggestion, or shows who posted it. |
+| `/ticket category-add\|category-remove\|panel\|settings\|stats` | Manage Server | Sets up ticket types, the panel, transcripts and auto-close. |
+| `/ticket add\|remove <user>` | Manage Threads | Adds or removes someone in the current ticket. |
+| `/rolemenu create\|add\|remove` | Manage Roles | Builds dropdown role menus. |
+| `/welcome set\|dm\|goodbye\|test\|off` | Manage Server | Sets the welcome, DM and goodbye messages. |
 | `/antinuke` | Server owner | Sets how many destructive actions an account may do before losing its roles. |
 | `/reasons add\|remove\|list` | Manage Server | Manages saved reasons. |
-| `/config modlog\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, appeals, auto-role, warning escalation and game server. |
+| `/config modlog\|reports\|suggestions\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, report and suggestion channels, appeals, auto-role, warning escalation and game server. |
 
 You can change who sees each staff command in **Server Settings → Integrations**.
 

@@ -1,7 +1,7 @@
 const {
   SlashCommandBuilder, EmbedBuilder, ChannelType, InteractionContextType, MessageFlags, PermissionFlagsBits,
 } = require('discord.js');
-const { getSettings, setSetting } = require('../db');
+const { getSettings, setSetting, getFeature, setFeature } = require('../db');
 const monitor = require('../monitor');
 const { BRAND, ephemeral, parseDuration } = require('../util');
 
@@ -56,6 +56,19 @@ async function configure(i) {
       : '✅ Ban appeals are off.'));
   }
 
+  if (sub === 'reports' || sub === 'suggestions') {
+    const channel = i.options.getChannel('channel');
+    if (channel && !canPost(channel)) return i.reply(ephemeral(`I can't post in ${channel}. I need View Channel, Send Messages and Embed Links there.`));
+    if (sub === 'suggestions' && channel && !channel.permissionsFor(i.guild.members.me).has(PermissionFlagsBits.CreatePublicThreads)) {
+      return i.reply(ephemeral(`I also need Create Public Threads in ${channel} for the discussion threads.`));
+    }
+    setFeature(i.guildId, sub, { channelId: channel?.id ?? null });
+    const on = sub === 'reports'
+      ? `✅ Reports go to ${channel}. Members can use \`/report\` or right-click a message → Apps → Report message.`
+      : `✅ Suggestions from \`/suggest\` are posted in ${channel}.`;
+    return i.reply(ephemeral(channel ? on : `✅ ${sub[0].toUpperCase()}${sub.slice(1)} are off.`));
+  }
+
   if (sub === 'autorole') {
     const role = i.options.getRole('role');
     if (role && (role.managed || role.id === i.guildId)) return i.reply(ephemeral("That role can't be handed out."));
@@ -102,6 +115,10 @@ async function configure(i) {
         { name: 'Game server', value: settings.server_url ? `\`${settings.server_url}\` → <#${settings.monitor_channel_id}>` : 'Off' },
         { name: 'Mod log', value: settings.modlog_channel_id ? `<#${settings.modlog_channel_id}>` : 'Off', inline: true },
         { name: 'Appeals', value: settings.appeals_channel_id ? `<#${settings.appeals_channel_id}>` : 'Off', inline: true },
+        ...['reports', 'suggestions'].map((name) => {
+          const { channelId } = getFeature(i.guildId, name, {});
+          return { name: `${name[0].toUpperCase()}${name.slice(1)}`, value: channelId ? `<#${channelId}>` : 'Off', inline: true };
+        }),
         { name: 'Auto-role', value: settings.autorole_id ? `<@&${settings.autorole_id}>` : 'Off', inline: true },
         { name: 'Warning escalation', value: escalation.join('\n') || 'Off' },
       )
@@ -122,6 +139,10 @@ module.exports = [
       .addSubcommand((s) => s.setName('monitor-off').setDescription('Stop watching the game server'))
       .addSubcommand((s) => s.setName('modlog').setDescription('Where to log moderation actions and AutoMod alerts')
         .addChannelOption((o) => o.setName('channel').setDescription('Leave empty to turn the log off').addChannelTypes(...TEXT_CHANNELS)))
+      .addSubcommand((s) => s.setName('reports').setDescription('Where member reports go')
+        .addChannelOption((o) => o.setName('channel').setDescription('Staff-only channel. Leave empty to turn reports off').addChannelTypes(...TEXT_CHANNELS)))
+      .addSubcommand((s) => s.setName('suggestions').setDescription('Where /suggest posts go')
+        .addChannelOption((o) => o.setName('channel').setDescription('Leave empty to turn suggestions off').addChannelTypes(...TEXT_CHANNELS)))
       .addSubcommand((s) => s.setName('appeals').setDescription('Let banned members appeal from their ban DM')
         .addChannelOption((o) => o.setName('channel').setDescription('Where appeals go. Leave empty to turn appeals off').addChannelTypes(...TEXT_CHANNELS)))
       .addSubcommand((s) => s.setName('autorole').setDescription('Give new members a role when they join')
