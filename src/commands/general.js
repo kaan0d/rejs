@@ -14,7 +14,8 @@ module.exports = [
     async execute(i) {
       const everyone = [];
       const staff = [];
-      for (const { data } of i.client.commands.values()) {
+      for (const { data, owner } of i.client.commands.values()) {
+        if (owner && !i.client.isOwner(i.user.id)) continue;
         const json = data.toJSON();
         const perms = json.default_member_permissions;
         // Only list commands this member can actually run.
