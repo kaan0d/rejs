@@ -7,9 +7,10 @@ const scheduler = require('./scheduler');
 const logs = require('./logs');
 const appeals = require('./appeals');
 const mod = require('./moderation');
+const updater = require('./updater');
 
 const commands = new Map(
-  ['general', 'info', 'moderation', 'cases', 'staff', 'bulk', 'logs', 'automation', 'server', 'admin']
+  ['general', 'info', 'moderation', 'cases', 'staff', 'bulk', 'logs', 'automation', 'server', 'admin', 'owner']
     .flatMap((file) => require(`./commands/${file}`))
     .map((command) => [command.data.name, command]),
 );
@@ -38,7 +39,13 @@ async function handleInteraction(interaction) {
     const focused = interaction.options.getFocused(true);
     return interaction.respond(focused.name === 'reason' ? mod.reasonChoices(interaction.guildId, focused.value) : []);
   }
-  if (interaction.isChatInputCommand()) return commands.get(interaction.commandName)?.execute(interaction);
+  if (interaction.isChatInputCommand()) {
+    const command = commands.get(interaction.commandName);
+    if (command?.owner && !interaction.client.isOwner(interaction.user.id)) {
+      return interaction.reply({ content: 'Only the bot owner can use this.', flags: MessageFlags.Ephemeral });
+    }
+    return command?.execute(interaction);
+  }
   if (interaction.isButton() || interaction.isModalSubmit()) {
     const [name, arg] = interaction.customId.split(':');
     return components[name]?.(interaction, arg);
@@ -65,10 +72,20 @@ async function main() {
   client.hasMessageContent = messageContent;
 
   client.once(Events.ClientReady, async (c) => {
-    await c.application.commands.set([...commands.values()].map((command) => command.data));
+    // The owner is whoever owns the application in the Developer Portal (or its team members).
+    const { owner } = await c.application.fetch();
+    c.isOwner = (id) => (owner?.members ? owner.members.has(id) : owner?.id === id);
+    c.notifyOwner = (text) => (owner?.members ? owner.owner?.user : owner)?.send(text).catch(() => {});
+
+    // Owner commands go only to the dev server when one is set, so other servers never see them.
+    const all = [...commands.values()];
+    const devGuild = process.env.DEV_GUILD_ID;
+    await c.application.commands.set(all.filter((cmd) => !devGuild || !cmd.owner).map((cmd) => cmd.data));
+    if (devGuild) await c.application.commands.set(all.filter((cmd) => cmd.owner).map((cmd) => cmd.data), devGuild);
     console.log(`${c.user.tag} is online in ${c.guilds.cache.size} servers with ${commands.size} commands.`);
     monitor.start(c);
     scheduler.start(c);
+    updater.start(c);
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {

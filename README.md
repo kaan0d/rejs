@@ -30,13 +30,15 @@ Requires **Node.js 22.13 or newer**. The bot uses Node's built-in SQLite, so the
    cd rejs
    npm install
    ```
-   Create a `.env` file:
+   Copy `.env.example` to `.env` and fill it in:
    ```env
    DISCORD_TOKEN=your_discord_bot_token_here
-   # Optional, defaults to rejs.db
-   DB_PATH=rejs.db
+   # true: pull and restart automatically when a new commit reaches GitHub
+   DEV_RESTART=false
+   # Optional: your own server ID. Owner commands register only there
+   DEV_GUILD_ID=
    ```
-4. Run it with `npm start`. Slash commands register automatically on startup.
+4. Run it with `npm start`, or on a server with pm2 (see below). Slash commands register automatically on startup.
 5. In Discord, run `/config modlog channel:#mod-log`, then `/logs set` for each log type and `/config appeals` if you take appeals. Run `/automod` after setting the mod log, so AutoMod alerts go there too.
 
 The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.json`. It polls every 10 seconds. Turn it on with `/config monitor address:1.2.3.4:30120 channel:#server-log`.
@@ -75,6 +77,28 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/config modlog\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, appeals, auto-role, warning escalation and game server. |
 
 You can change who sees each staff command in **Server Settings → Integrations**.
+
+## Running on a server
+
+Use [pm2](https://pm2.keymetrics.io/) to keep the bot running and restart it after crashes or reboots:
+
+```sh
+sudo npm install -g pm2
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup   # prints one command to run with sudo, so the bot starts on boot
+```
+
+With `DEV_RESTART=true`, the bot checks GitHub every minute. When a new commit arrives, it pulls it, reinstalls packages if `package.json` changed, and restarts. With `DEV_RESTART=false` nothing happens until you run `/update`.
+
+### Owner commands
+
+Only the bot's owner (the application owner in the Developer Portal, or its team members) can use these. Set `DEV_GUILD_ID` so they appear only in your own server.
+
+| Command | What it does |
+| --- | --- |
+| `/restart` | Restarts the bot. |
+| `/update` | Pulls the latest commit from GitHub and restarts, whatever `DEV_RESTART` is set to. |
 
 ## Development
 
