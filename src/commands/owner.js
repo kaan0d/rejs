@@ -5,6 +5,7 @@ const { BRAND } = require('../util');
 const { formatDuration } = require('../monitor');
 const updater = require('../updater');
 const ops = require('../ops');
+const backup = require('../backup');
 
 // Only the bot owner may run these. They are also hidden from everyone except administrators,
 // and registered only in DEV_GUILD_ID when it is set.
@@ -65,6 +66,7 @@ module.exports = [
             { name: 'Database', value: `${(dbSize / 1048576).toFixed(1)} MB`, inline: true },
             { name: 'Waiting for deletion', value: `${departed} servers`, inline: true },
             { name: 'Version', value: `\`${await updater.currentCommit()}\``, inline: true },
+            { name: 'Last backup', value: backup.list().at(-1)?.name ?? 'none yet', inline: true },
             { name: 'Node', value: process.version, inline: true },
             { name: 'Most used commands', value: top },
           )],
@@ -114,6 +116,17 @@ module.exports = [
         if (await channel?.send({ embeds: [embed] }).then(() => true, () => false)) sent++;
       }
       await reply(i, `📢 Sent to ${sent} of ${i.client.guilds.cache.size} servers (the rest have no mod log).`);
+    },
+  },
+
+  {
+    owner: true,
+    data: command('backup', 'Back up the database now (owner only)'),
+    async execute(i) {
+      const result = backup.backup(new Date(), { force: true });
+      if (!result) return reply(i, 'Backups are off while the database lives in memory.');
+      const size = (result.size / 1048576).toFixed(1);
+      return reply(i, `💾 Saved \`${result.file}\` (${size} MB). ${backup.list().length} backups are kept in \`${backup.dir()}\`.`);
     },
   },
 ];

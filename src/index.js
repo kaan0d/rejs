@@ -25,7 +25,7 @@ const updater = require('./updater');
 const FILES = {
   general: '👋 General', info: '👋 General', utility: '👋 General',
   moderation: '🔨 Moderation', cases: '🔨 Moderation', staff: '🔨 Moderation', bulk: '🔨 Moderation',
-  protection: '🛡️ Protection', logs: '📜 Logs',
+  protection: '🛡️ Protection', snapshot: '🛡️ Protection', logs: '📜 Logs',
   support: '🎫 Support', community: '🎉 Community', events: '🎉 Community',
   automation: '⚙️ Automation', server: '🎮 Game server', channels: '🔧 Setup', admin: '🔧 Setup', undo: '🔧 Setup', owner: '👑 Owner',
 };
