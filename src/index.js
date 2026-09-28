@@ -15,6 +15,8 @@ const community = require('./community');
 const automation = require('./automation');
 const giveaways = require('./giveaways');
 const tempvoice = require('./tempvoice');
+const ops = require('./ops');
+const setup = require('./setup');
 const mod = require('./moderation');
 const updater = require('./updater');
 
@@ -35,8 +37,11 @@ const commands = new Map(
 // Buttons and forms that must keep working after a restart, keyed by the custom ID prefix.
 const components = {
   ...appeals.handlers, ...gate.handlers, ...antiraid.handlers, ...tickets.handlers, ...reports.handlers, ...community.handlers,
-  ...giveaways.handlers,
+  ...giveaways.handlers, ...setup.handlers,
 };
+
+// Set once logged in, so crashes outside an interaction can still be reported.
+let activeClient = null;
 
 // Asks Discord which privileged intents are turned on, so a missing Message Content intent
 // switches message features off instead of failing to log in.
@@ -66,6 +71,7 @@ async function handleInteraction(interaction) {
     if (command?.owner && !interaction.client.isOwner(interaction.user.id)) {
       return interaction.reply({ content: 'Only the bot owner can use this.', flags: MessageFlags.Ephemeral });
     }
+    if (command) ops.countUsage(command.data.name);
     return command?.execute(interaction);
   }
   if (interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu()) {
@@ -117,19 +123,20 @@ async function main() {
     try {
       await handleInteraction(interaction);
     } catch (error) {
-      console.error(`Interaction ${interaction.commandName ?? interaction.customId} failed:`, error);
+      await ops.reportError(interaction.client, `Interaction ${interaction.commandName ?? interaction.customId} failed`, error);
       if (!interaction.isRepliable()) return;
       const reply = { content: 'Something went wrong. Please try again.', flags: MessageFlags.Ephemeral };
       await (interaction.replied || interaction.deferred ? interaction.followUp(reply) : interaction.reply(reply)).catch(() => {});
     }
   });
 
-  for (const feature of [logs, gate, antiraid, antinuke, antispam, tickets, community, automation, tempvoice]) feature.register(client);
+  for (const feature of [ops, setup, logs, gate, antiraid, antinuke, antispam, tickets, community, automation, tempvoice]) feature.register(client);
+  activeClient = client;
   await client.login(token);
 }
 
 // A failed Discord call in a button handler should log, not take the bot down.
-process.on('unhandledRejection', (error) => console.error('Unhandled rejection:', error));
+process.on('unhandledRejection', (error) => ops.reportError(activeClient, 'Unhandled rejection', error));
 
 main().catch((error) => {
   console.error(error.message);

@@ -298,3 +298,42 @@ test('watchlist entries accept names, identifiers and mentions', () => {
   assert.equal(monitor.watchKey('<@123456789012345678>'), '123456789012345678');
   assert.equal(monitor.watchKey(' license:abc '), 'license:abc');
 });
+
+const ops = require('../src/ops');
+
+test('a departed server keeps its data for 30 days, then everything is deleted', async () => {
+  const g = 'bye-g';
+  setSetting(g, 'modlog_channel_id', 'c');
+  setFeature(g, 'antispam', { enabled: true });
+  await mod.recordCase(fakeGuild(g), { action: 'warn', user: user('1'), moderator: user('m'), reason: 'x' });
+  const { lastInsertRowid: s } = db.prepare("INSERT INTO suggestions (guild_id, channel_id, user_id, anonymous, text, created_at) VALUES (?, 'c', 'u', 0, 'idea', 0)").run(g);
+  db.prepare("INSERT INTO suggestion_votes VALUES (?, 'u', 1)").run(s);
+  setSetting('stay-g', 'modlog_channel_id', 'c');
+
+  const now = Date.now();
+  db.prepare('INSERT INTO departed_guilds (guild_id, left_at) VALUES (?, ?)').run(g, now - 29 * 86_400_000);
+  assert.equal(ops.purgeDeparted(now), 0);
+  assert.equal(ops.purgeDeparted(now + 2 * 86_400_000), 1);
+
+  for (const table of ['guild_settings', 'features', 'cases', 'suggestions']) {
+    assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE guild_id = ?`).get(g).n, 0, table);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM suggestion_votes WHERE suggestion_id = ?').get(s).n, 0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM guild_settings WHERE guild_id = 'stay-g'").get().n, 1);
+});
+
+test('blacklisting leaves the server and can be undone', async () => {
+  let left = false;
+  const client = { guilds: { cache: new Map([['bl-g', { name: 'Bad', leave: async () => { left = true; } }]]) } };
+  assert.equal(await ops.blacklist(client, 'bl-g', 'spam'), 'Bad');
+  assert.ok(left && ops.isBlacklisted('bl-g'));
+  assert.ok(ops.unblacklist('bl-g'));
+  assert.ok(!ops.isBlacklisted('bl-g'));
+});
+
+test('command usage is counted', () => {
+  ops.countUsage('warn');
+  ops.countUsage('warn');
+  ops.countUsage('ban');
+  assert.deepEqual(ops.topCommands(2).map((c) => [c.name, c.count]), [['warn', 2], ['ban', 1]]);
+});

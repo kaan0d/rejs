@@ -48,4 +48,6 @@ function start(client) {
   }, CHECK_MS);
 }
 
-module.exports = { start, checkForUpdate, update, restart, autoRestart };
+const currentCommit = () => git('log', '-1', '--format=%h %s').catch(() => 'unknown');
+
+module.exports = { start, checkForUpdate, update, restart, autoRestart, currentCommit };

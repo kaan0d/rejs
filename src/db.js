@@ -211,6 +211,23 @@ db.exec(`
     added_by TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS blacklist (
+    guild_id TEXT PRIMARY KEY,
+    reason TEXT,
+    added_at INTEGER NOT NULL
+  );
+
+  -- When the bot left a server; its data is deleted 30 days later unless it comes back.
+  CREATE TABLE IF NOT EXISTS departed_guilds (
+    guild_id TEXT PRIMARY KEY,
+    left_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS command_usage (
+    name TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0
+  );
+
   CREATE TABLE IF NOT EXISTS schedules (
     id INTEGER PRIMARY KEY,
     guild_id TEXT NOT NULL,
