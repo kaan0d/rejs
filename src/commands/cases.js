@@ -99,7 +99,68 @@ async function reasons(i) {
   return i.reply(ephemeral(changes ? `✅ Removed "${text}".` : "That reason isn't saved."));
 }
 
+const periodText = (days) => (days ? `last ${days} days` : 'all time');
+
+// Actions per moderator: cases they recorded, tickets they claimed and reports they handled.
+function staffActivity(guildId, since) {
+  const staff = new Map();
+  const add = (id, key, n) => {
+    if (!staff.has(id)) staff.set(id, { total: 0 });
+    staff.get(id)[key] = (staff.get(id)[key] ?? 0) + n;
+    staff.get(id).total += n;
+  };
+  for (const r of db.prepare("SELECT moderator_id AS id, action, COUNT(*) AS n FROM cases WHERE guild_id = ? AND created_at >= ? AND action != 'note' GROUP BY moderator_id, action").all(guildId, since)) add(r.id, r.action, r.n);
+  for (const r of db.prepare('SELECT claimed_by AS id, COUNT(*) AS n FROM tickets WHERE guild_id = ? AND created_at >= ? AND claimed_by IS NOT NULL GROUP BY claimed_by').all(guildId, since)) add(r.id, 'tickets', r.n);
+  for (const r of db.prepare('SELECT handled_by AS id, COUNT(*) AS n FROM reports WHERE guild_id = ? AND created_at >= ? AND handled_by IS NOT NULL GROUP BY handled_by').all(guildId, since)) add(r.id, 'reports', r.n);
+  return staff;
+}
+
+function activityLine(stats) {
+  const parts = Object.entries(mod.ACTIONS).filter(([a]) => stats[a]).map(([a, { emoji }]) => `${emoji} ${stats[a]}`);
+  if (stats.tickets) parts.push(`🎫 ${stats.tickets}`);
+  if (stats.reports) parts.push(`🚩 ${stats.reports}`);
+  return parts.join('  ');
+}
+
+async function modstats(i) {
+  const days = i.options.getInteger('days') ?? 30;
+  const since = days ? Date.now() - days * 86_400_000 : 0;
+  const staff = staffActivity(i.guildId, since);
+  const who = i.options.getUser('moderator');
+  const botId = i.client.user.id;
+
+  if (who) {
+    const stats = staff.get(who.id);
+    const recent = db.prepare("SELECT * FROM cases WHERE guild_id = ? AND moderator_id = ? AND created_at >= ? AND action != 'note' ORDER BY number DESC LIMIT 10")
+      .all(i.guildId, who.id, since);
+    return i.reply({
+      flags: MessageFlags.Ephemeral,
+      embeds: [new EmbedBuilder().setColor(BRAND)
+        .setAuthor({ name: `${who.username} · ${periodText(days)}`, iconURL: who.displayAvatarURL() })
+        .setDescription(stats ? `**${stats.total} actions**\n${activityLine(stats)}` : 'No actions in this period.')
+        .addFields({ name: 'Latest cases', value: recent.map((c) => `\`#${c.number}\` ${mod.ACTIONS[c.action].emoji} <@${c.user_id}> <t:${unix(c.created_at)}:R>`).join('\n') || '—' })],
+    });
+  }
+
+  const ranked = [...staff.entries()].sort((a, b) => b[1].total - a[1].total).slice(0, 15);
+  const lines = ranked.map(([id, stats], n) => `\`${n + 1}.\` ${id === botId ? '🤖 Automatic' : `<@${id}>`} · **${stats.total}** · ${activityLine(stats)}`);
+  return i.reply({
+    flags: MessageFlags.Ephemeral,
+    embeds: [new EmbedBuilder().setColor(BRAND).setTitle(`📈 Staff activity · ${periodText(days)}`)
+      .setDescription(lines.join('\n') || 'No staff actions in this period.')
+      .setFooter({ text: 'Cases, claimed tickets (🎫) and handled reports (🚩). Notes are not counted.' })],
+  });
+}
+
 module.exports = [
+  {
+    data: command('modstats', 'How active each moderator has been', PermissionFlagsBits.ManageGuild)
+      .addIntegerOption((o) => o.setName('days').setDescription('Period (default: 30 days)')
+        .addChoices({ name: 'Last 7 days', value: 7 }, { name: 'Last 30 days', value: 30 }, { name: 'Last 90 days', value: 90 }, { name: 'All time', value: 0 }))
+      .addUserOption((o) => o.setName('moderator').setDescription('Details for one moderator')),
+    execute: modstats,
+  },
+
   {
     data: command('history', "Every case and note for a member", PermissionFlagsBits.ModerateMembers)
       .addUserOption((o) => o.setName('user').setDescription('User or user ID').setRequired(true)),

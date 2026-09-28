@@ -458,3 +458,87 @@ test('undoing a category delete recreates it first, puts its channels back and r
   assert.deepEqual(moved, [created[0].id]);
   assert.equal(getSettings('ch-g').modlog_channel_id, created[1].id);
 });
+
+const snapshots = require('../src/snapshots');
+const { Collection } = require('discord.js');
+
+test('database backups are daily copies and only the last 7 are kept', () => {
+  const { execFileSync } = require('node:child_process');
+  const os = require('node:os');
+  const path = require('node:path');
+  const fs = require('node:fs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rejs-backup-'));
+  const script = `
+    const { setSetting } = require(${JSON.stringify(path.resolve('src/db'))});
+    const backup = require(${JSON.stringify(path.resolve('src/backup'))});
+    setSetting('g', 'modlog_channel_id', 'c');
+    for (let day = 1; day <= 9; day++) backup.backup(new Date(Date.UTC(2026, 0, day)));
+    const again = backup.backup(new Date(Date.UTC(2026, 0, 9)));
+    console.log(JSON.stringify({ files: backup.list().map((f) => f.name), again }));`;
+  const out = execFileSync(process.execPath, ['--disable-warning=ExperimentalWarning', '-e', script], {
+    env: { ...process.env, DB_PATH: path.join(tmp, 'live.db'), BACKUP_DIR: path.join(tmp, 'backups') },
+  }).toString();
+  const { files, again } = JSON.parse(out);
+  assert.equal(files.length, 7);
+  assert.equal(files[0], 'rejs-2026-01-03.db');
+  assert.equal(again, null);
+  const { DatabaseSync } = require('node:sqlite');
+  const copy = new DatabaseSync(path.join(tmp, 'backups', files.at(-1)));
+  assert.equal(copy.prepare("SELECT modlog_channel_id FROM guild_settings WHERE guild_id = 'g'").get().modlog_channel_id, 'c');
+  copy.close();
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('restore recreates deleted roles and channels, gives roles back and repoints settings', async () => {
+  const P = require('discord.js').ChannelType;
+  let next = 700;
+  const given = [];
+  const overwrites = (list) => ({ cache: new Collection(list.map((o) => [o.id, { ...o, allow: { bitfield: 1024n }, deny: { bitfield: 0n } }])) });
+  const alice = { id: 'alice', roles: { add: async (r) => given.push(`alice+${r}`) } };
+  const guild = {
+    id: 'rs-g',
+    members: {
+      fetch: async () => null,
+      cache: new Collection([['alice', alice]]),
+      me: { permissions: { has: () => true, bitfield: 0n }, roles: { highest: { position: 10 } } },
+    },
+    roles: {
+      cache: new Collection([
+        ['rs-g', { id: 'rs-g', managed: false }],
+        ['staff', { id: 'staff', name: 'Staff', color: 1, hoist: true, mentionable: false, managed: false, position: 5, permissions: { bitfield: 8n }, members: new Collection([['alice', alice]]) }],
+      ]),
+      create: async (o) => { const r = { id: `r${next++}`, ...o }; guild.roles.cache.set(r.id, r); return r; },
+      setPositions: async () => {},
+    },
+    channels: {
+      cache: new Collection([
+        ['cat', { id: 'cat', name: 'Staff area', type: P.GuildCategory, parentId: null, rawPosition: 0, isThread: () => false, permissionOverwrites: overwrites([{ id: 'staff', type: 0 }]) }],
+        ['log', { id: 'log', name: 'mod-log', type: P.GuildText, parentId: 'cat', rawPosition: 0, isThread: () => false, permissionOverwrites: overwrites([{ id: 'staff', type: 0 }]) }],
+      ]),
+      create: async (o) => { const c = { id: `c${next++}`, ...o }; guild.channels.cache.set(c.id, c); return c; },
+    },
+  };
+  setSetting('rs-g', 'modlog_channel_id', 'log');
+  const taken = await snapshots.take(guild);
+  assert.deepEqual([taken.roles, taken.channels], [1, 2]);
+
+  // The nuke: the role, the category and the log channel are gone.
+  guild.roles.cache.delete('staff');
+  guild.channels.cache.delete('cat');
+  guild.channels.cache.delete('log');
+
+  const snapshot = snapshots.list('rs-g')[0];
+  const missing = snapshots.missing(guild, snapshot);
+  assert.deepEqual(missing.channels.map((c) => c.name), ['Staff area', 'mod-log']);
+  const result = await snapshots.restore(guild, snapshot);
+  assert.deepEqual([result.roles, result.channels, result.members, result.failed.length], [1, 2, 1, 0]);
+
+  const newRole = [...guild.roles.cache.values()].find((r) => r.name === 'Staff');
+  const newCat = [...guild.channels.cache.values()].find((c) => c.name === 'Staff area');
+  const newLog = [...guild.channels.cache.values()].find((c) => c.name === 'mod-log');
+  assert.equal(newLog.parent, newCat.id);
+  assert.deepEqual(newLog.permissionOverwrites.map((o) => o.id), [newRole.id]);
+  assert.deepEqual(given, [`alice+${newRole.id}`]);
+  assert.equal(getSettings('rs-g').modlog_channel_id, newLog.id);
+  assert.deepEqual(snapshots.missing(guild, snapshots.list('rs-g')[0]), { roles: [], channels: [] });
+});

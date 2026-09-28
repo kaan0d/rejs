@@ -5,6 +5,8 @@ const { deliverReminders } = require('./automation');
 const { checkGiveaways } = require('./giveaways');
 const { purgeDeparted } = require('./ops');
 const journal = require('./journal');
+const backup = require('./backup');
+const snapshots = require('./snapshots');
 
 const TICK_MS = 30_000;
 
@@ -19,9 +21,23 @@ async function run(client) {
   }
 }
 
-// Scheduled messages, temporary bans, ticket auto-close, reminders, giveaways and data cleanup share one timer.
-// Undo history older than 7 days is dropped on the same tick.
-const tick = (client) => Promise.all([run(client), expireBans(client), tickets.checkInactive(client), deliverReminders(client), checkGiveaways(client), purgeDeparted(), journal.purgeOld()]).catch((e) => console.error('Scheduler:', e));
+// Everything time-based shares one timer. The daily database backup and server snapshots
+// run when due; old undo history and departed servers' data are cleaned up.
+const JOBS = {
+  schedules: run,
+  'temporary bans': expireBans,
+  'ticket auto-close': tickets.checkInactive,
+  reminders: deliverReminders,
+  giveaways: checkGiveaways,
+  'departed servers': () => purgeDeparted(),
+  'undo history': () => journal.purgeOld(),
+  'database backup': () => backup.backup(),
+  'server snapshots': snapshots.autoTake,
+};
+
+// Each job fails on its own: a synchronous throw or a rejection is logged, the rest still run.
+const tick = (client) => Promise.all(Object.entries(JOBS).map(([name, job]) =>
+  Promise.resolve().then(() => job(client)).catch((e) => console.error(`Scheduler (${name}):`, e))));
 const start = (client) => {
   tick(client);
   setInterval(() => tick(client), TICK_MS);

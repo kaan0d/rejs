@@ -78,7 +78,7 @@ function remapId(guildId, oldId, newId) {
   }
 }
 
-async function recreateChannel(guild, s, ctx) {
+async function recreateChannel(guild, s, ctx = { ids: {} }) {
   // A parent category recreated earlier in this same undo has a new ID.
   const parentId = ctx.ids[s.parentId] ?? s.parentId;
   const created = await guild.channels.create({
@@ -92,10 +92,13 @@ async function recreateChannel(guild, s, ctx) {
     bitrate: s.bitrate ?? undefined,
     userLimit: s.userLimit ?? undefined,
     // Overwrites for roles deleted since then would make Discord reject the whole channel.
+    // Roles recreated earlier in the same run have new IDs; overwrites for roles that are
+    // gone for good would make Discord reject the whole channel.
     permissionOverwrites: s.overwrites
+      .map((o) => ({ ...o, id: ctx.ids[o.id] ?? o.id }))
       .filter((o) => o.type !== OverwriteType.Role || guild.roles.cache.has(o.id))
       .map((o) => ({ id: o.id, type: o.type, allow: BigInt(o.allow), deny: BigInt(o.deny) })),
-    reason: 'Undo',
+    reason: ctx.reason ?? 'Undo',
   });
   ctx.ids[s.id] = created.id;
   remapId(guild.id, s.id, created.id);
@@ -246,4 +249,4 @@ function purgeOld(now = Date.now()) {
   rawPrepare('DELETE FROM undo_rows WHERE tx NOT IN (SELECT id FROM undo_log)').run();
 }
 
-module.exports = { ...journal, undo, undoable, entry, changesOf, newerThan, purgeOld, KEEP_MS };
+module.exports = { ...journal, undo, undoable, entry, changesOf, newerThan, purgeOld, KEEP_MS, channelSnapshot, recreateChannel, remapId };

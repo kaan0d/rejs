@@ -228,6 +228,15 @@ db.exec(`
     count INTEGER NOT NULL DEFAULT 0
   );
 
+  -- Daily copies of a server's roles and channels, for rebuilding after a nuke.
+  CREATE TABLE IF NOT EXISTS server_snapshots (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    taken_at INTEGER NOT NULL,
+    data TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS server_snapshots_by_guild ON server_snapshots (guild_id, taken_at);
+
   CREATE TABLE IF NOT EXISTS schedules (
     id INTEGER PRIMARY KEY,
     guild_id TEXT NOT NULL,
@@ -289,7 +298,7 @@ db.exec(`
 `);
 
 // High-volume history the bot writes on its own; undoing it would make no sense.
-const UNJOURNALED = new Set(['undo_log', 'undo_rows', 'undo_state', 'sessions', 'player_counts', 'command_usage', 'departed_guilds']);
+const UNJOURNALED = new Set(['undo_log', 'undo_rows', 'undo_state', 'sessions', 'player_counts', 'command_usage', 'departed_guilds', 'server_snapshots']);
 
 // Rebuilt at every start, so columns added later are captured too.
 for (const { name } of db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all()) {

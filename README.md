@@ -33,6 +33,9 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 - **FiveM server monitor.** Joins and leaves are grouped into one embed per update, with how long each player stayed. The bot posts once when the server goes offline and once when it comes back. Its status shows the player count, a voice channel name can show it too, and `/server` shows a 24-hour chart with the peak. `/playtime` ranks players from the recorded sessions, and `/watchlist` pings staff when chosen players join.
 - **Setup wizard.** When the bot joins a server it posts a short setup with buttons that create the staff log channels, a verification panel and the quarantine, all connected to the bot. `/setup` brings it back.
 - **Undo.** Every staff command and staff button is recorded for 7 days. `/undo` lists them and reverses the one you pick: settings, saved records, created and deleted channels (deleted ones come back empty, and the bot's settings follow them), roles, permission changes, bans, timeouts, role and nickname changes, AutoMod rules and posted panels. Before anything changes it shows what will be reversed and what can't be (a kick, deleted messages). Each undo is posted to the mod log.
+- **Nuke recovery.** Every day the bot saves a snapshot of each server's roles (with who had them) and channels (with their settings and permissions), keeping the last 7. If roles or channels get deleted, `/restore` rebuilds whatever is missing and gives members their roles back.
+- **Staff activity.** `/modstats` ranks moderators by cases, claimed tickets and handled reports over 7, 30 or 90 days.
+- **Database backups.** A copy of the database is saved every day to `backups/`, keeping the last 7.
 - **Privacy by default.** When the bot is removed from a server, that server's data is kept for 30 days in case it comes back, then deleted.
 - **Per-server settings.** Each Discord server has its own channels, rules and game server.
 
@@ -119,6 +122,9 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/antinuke` | Server owner | Sets how many destructive actions an account may do before losing its roles. |
 | `/reasons add\|remove\|list` | Manage Server | Manages saved reasons. |
 | `/setup` | Manage Server | Shows the setup wizard. |
+| `/modstats [days] [moderator]` | Manage Server | Shows staff activity, or one moderator's details. |
+| `/snapshot take\|list` | Administrator | Saves a snapshot now, or lists saved ones. |
+| `/restore [snapshot]` | Administrator | Recreates roles and channels deleted since a snapshot. Shows what's missing first. |
 | `/channel delete <channel>` | Manage Channels | Deletes a channel, or a category with or without its channels (it asks). Warns if the bot uses the channel. `/undo` recreates it, empty. |
 | `/undo` | Manage Server | Reverses a staff action from the last 7 days. You only see actions whose command you are allowed to use. |
 | `/config modlog\|reports\|suggestions\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, report and suggestion channels, appeals, auto-role, warning escalation and game server. |
@@ -149,6 +155,7 @@ Only the bot's owner (the application owner in the Developer Portal, or its team
 | `/stats` | Servers, members, uptime, memory, database size, version and the most used commands. |
 | `/blacklist add\|remove\|list` | Makes the bot leave a server and refuse to rejoin it. |
 | `/announce <message>` | Posts an update to every server's mod log. |
+| `/backup` | Backs up the database right now (a daily backup also runs automatically). |
 
 Unexpected errors are sent to `ERROR_CHANNEL_ID`, or to the owner by DM. The same error is reported at most once every 10 minutes.
 
