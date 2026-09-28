@@ -202,6 +202,6 @@ function register(client) {
 module.exports = {
   getMenu, menuMessage, saveMenu, refreshMenu, roleChanges,
   WELCOME_DEFAULTS, fill, sendWelcome,
-  getSuggestion, postSuggestion, setSuggestionStatus, STATUS,
+  getSuggestion, postSuggestion, setSuggestionStatus, suggestionMessage, STATUS,
   handlers, register,
 };

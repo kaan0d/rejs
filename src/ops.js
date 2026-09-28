@@ -33,6 +33,7 @@ function deleteGuildData(guildId) {
   db.exec(`
     DELETE FROM suggestion_votes WHERE suggestion_id NOT IN (SELECT id FROM suggestions);
     DELETE FROM giveaway_entries WHERE giveaway_id NOT IN (SELECT id FROM giveaways);
+    DELETE FROM undo_rows WHERE tx NOT IN (SELECT id FROM undo_log);
   `);
   db.prepare('DELETE FROM departed_guilds WHERE guild_id = ?').run(guildId);
   return rows;

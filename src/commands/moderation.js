@@ -6,6 +6,7 @@ const { formatDuration } = require('../monitor');
 const { ephemeral, parseDuration } = require('../util');
 const { appealRow } = require('../appeals');
 const mod = require('../moderation');
+const journal = require('../journal');
 
 const P = PermissionFlagsBits;
 const reasonOf = (i) => i.options.getString('reason') ?? 'No reason given';
@@ -79,12 +80,15 @@ async function ban(i) {
     reason: mod.auditReason(i.member, reason),
     deleteMessageSeconds: i.options.getInteger('delete_messages') ?? 0,
   });
+  journal.banned(user.id);
+  if (i.options.getInteger('delete_messages')) journal.cannotUndo('Deleted messages');
   const number = await mod.recordCase(i.guild, { action: 'ban', user, moderator: i.user, reason, durationMs, expiresAt });
   await i.reply(`🔨 Banned **${user.tag}**${expiresAt ? ` until <t:${unix(expiresAt)}:f>` : ''}. (case #${number})`);
 }
 
 async function setLock(i, locked) {
   const channel = i.options.getChannel('channel') ?? i.channel;
+  journal.overwrite(channel, i.guild.roles.everyone.id);
   await channel.permissionOverwrites.edit(i.guild.roles.everyone, { SendMessages: locked ? false : null },
     { reason: mod.auditReason(i.member, locked ? 'Lock' : 'Unlock') });
   await mod.modLog(i.guild, { title: locked ? '🔒 Channel locked' : '🔓 Channel unlocked', color: Colors.Grey, moderator: i.user, extra: `**Channel:** ${channel}` });
@@ -132,6 +136,7 @@ module.exports = [
       const error = mod.checkTarget(i.member, member, 'timeout');
       if (error) return i.reply(ephemeral(error));
       const reason = reasonOf(i);
+      journal.timeout(member);
       await member.timeout(ms, mod.auditReason(i.member, reason));
       await mod.notify(member.user, `🔇 You were timed out in **${i.guild.name}** for ${formatDuration(ms)}: ${reason}`);
       const number = await mod.recordCase(i.guild, { action: 'timeout', user: member.user, moderator: i.user, reason, durationMs: ms });
@@ -149,6 +154,7 @@ module.exports = [
       const error = mod.checkTarget(i.member, member, 'timeout');
       if (error) return i.reply(ephemeral(error));
       const reason = reasonOf(i);
+      journal.timeout(member);
       await member.timeout(null, mod.auditReason(i.member, reason));
       const number = await mod.recordCase(i.guild, { action: 'untimeout', user: member.user, moderator: i.user, reason });
       await i.reply(`🔊 ${member} can talk again. (case #${number})`);
@@ -165,6 +171,7 @@ module.exports = [
       if (error) return i.reply(ephemeral(error));
       const reason = reasonOf(i);
       await mod.notify(member.user, `👢 You were kicked from **${i.guild.name}**: ${reason}`);
+      journal.cannotUndo('Kick (they have to rejoin themselves)');
       await member.kick(mod.auditReason(i.member, reason));
       const number = await mod.recordCase(i.guild, { action: 'kick', user: member.user, moderator: i.user, reason });
       await i.reply(`👢 Kicked **${member.user.tag}**. (case #${number})`);
@@ -191,6 +198,7 @@ module.exports = [
       if (error) return i.reply(ephemeral(error));
       const reason = reasonOf(i);
       await mod.notify(member.user, `🧹 You were removed from **${i.guild.name}** and your recent messages were deleted: ${reason}. You can rejoin.`);
+      journal.cannotUndo('Softban (deleted messages; they have to rejoin themselves)');
       await i.guild.bans.create(member.id, {
         reason: mod.auditReason(i.member, `Softban: ${reason}`),
         deleteMessageSeconds: i.options.getInteger('delete_messages') ?? 86_400,
@@ -211,6 +219,7 @@ module.exports = [
       const reason = reasonOf(i);
       const user = await i.guild.bans.remove(id, mod.auditReason(i.member, reason)).catch(() => null);
       if (!user) return i.reply(ephemeral("That user isn't banned."));
+      journal.unbanned(user.id);
       mod.closeBans(i.guildId, user.id);
       const number = await mod.recordCase(i.guild, { action: 'unban', user, moderator: i.user, reason });
       await i.reply(`🕊️ Unbanned **${user.tag}**. (case #${number})`);
@@ -236,6 +245,7 @@ module.exports = [
       const input = i.options.getString('delay', true);
       const ms = input.trim() === '0' ? 0 : parseDuration(input);
       if (ms === null || ms > 6 * 3_600_000) return i.reply(ephemeral('Use a delay like `5s`, `1m` or `2h`, up to 6 hours, or `0` to turn it off.'));
+      journal.channelField(channel, 'rateLimitPerUser');
       await channel.setRateLimitPerUser(Math.round(ms / 1000), mod.auditReason(i.member, 'Slowmode'));
       await i.reply(ms ? `🐢 Slowmode in ${channel}: one message every ${Math.round(ms / 1000)}s.` : `🐇 Slowmode is off in ${channel}.`);
     },

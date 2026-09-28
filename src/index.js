@@ -17,6 +17,7 @@ const giveaways = require('./giveaways');
 const tempvoice = require('./tempvoice');
 const ops = require('./ops');
 const setup = require('./setup');
+const journal = require('./journal');
 const mod = require('./moderation');
 const updater = require('./updater');
 
@@ -26,7 +27,7 @@ const FILES = {
   moderation: '🔨 Moderation', cases: '🔨 Moderation', staff: '🔨 Moderation', bulk: '🔨 Moderation',
   protection: '🛡️ Protection', logs: '📜 Logs',
   support: '🎫 Support', community: '🎉 Community', events: '🎉 Community',
-  automation: '⚙️ Automation', server: '🎮 Game server', admin: '🔧 Setup', owner: '👑 Owner',
+  automation: '⚙️ Automation', server: '🎮 Game server', admin: '🔧 Setup', undo: '🔧 Setup', owner: '👑 Owner',
 };
 const commands = new Map(
   Object.entries(FILES)
@@ -38,6 +39,16 @@ const commands = new Map(
 const components = {
   ...appeals.handlers, ...gate.handlers, ...antiraid.handlers, ...tickets.handlers, ...reports.handlers, ...community.handlers,
   ...giveaways.handlers, ...setup.handlers,
+};
+
+// Staff buttons whose changes can be undone, with the label shown in /undo.
+const STAFF_COMPONENTS = {
+  setup: 'Setup wizard',
+  'appeal-accept': 'Accepted a ban appeal', 'appeal-deny': 'Denied a ban appeal',
+  'report-delete': 'Deleted a reported message', 'report-warn': 'Warned from a report', 'report-timeout': 'Timed out from a report',
+  'report-ban': 'Banned from a report', 'report-dismiss': 'Dismissed a report',
+  'gate-approve': 'Approved a quarantined member', 'gate-kick': 'Kicked a quarantined member', 'gate-ban': 'Banned a quarantined member',
+  'raid-end': 'Ended raid mode',
 };
 
 // Set once logged in, so crashes outside an interaction can still be reported.
@@ -71,12 +82,21 @@ async function handleInteraction(interaction) {
     if (command?.owner && !interaction.client.isOwner(interaction.user.id)) {
       return interaction.reply({ content: 'Only the bot owner can use this.', flags: MessageFlags.Ephemeral });
     }
-    if (command) ops.countUsage(command.data.name);
-    return command?.execute(interaction);
+    if (!command) return null;
+    ops.countUsage(command.data.name);
+    // Staff commands are recorded so /undo can reverse them.
+    const permissions = command.data.toJSON().default_member_permissions;
+    if (!interaction.inGuild() || !permissions || command.owner || command.noJournal) return command.execute(interaction);
+    const label = (interaction.isChatInputCommand() ? interaction.toString() : `${command.data.name}`).slice(0, 100);
+    return journal.run({ guildId: interaction.guildId, userId: interaction.user.id, label, permissions }, () => command.execute(interaction));
   }
   if (interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu()) {
     const [name, arg] = interaction.customId.split(':');
-    return components[name]?.(interaction, arg);
+    const handler = components[name];
+    if (!handler) return null;
+    if (!interaction.inGuild() || !STAFF_COMPONENTS[name]) return handler(interaction, arg);
+    const label = `${STAFF_COMPONENTS[name]}${name === 'setup' ? `: ${arg}` : ''}`;
+    return journal.run({ guildId: interaction.guildId, userId: interaction.user.id, label, permissions: null }, () => handler(interaction, arg));
   }
 }
 

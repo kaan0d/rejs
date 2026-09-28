@@ -32,6 +32,7 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 - **Temporary voice channels.** Joining a hub creates a personal voice channel that disappears when empty. Owners rename it, set a limit, lock or hide it, let people in, remove people, and hand it over.
 - **FiveM server monitor.** Joins and leaves are grouped into one embed per update, with how long each player stayed. The bot posts once when the server goes offline and once when it comes back. Its status shows the player count, a voice channel name can show it too, and `/server` shows a 24-hour chart with the peak. `/playtime` ranks players from the recorded sessions, and `/watchlist` pings staff when chosen players join.
 - **Setup wizard.** When the bot joins a server it posts a short setup with buttons that create the staff log channels, a verification panel and the quarantine, all connected to the bot. `/setup` brings it back.
+- **Undo.** Every staff command and staff button is recorded for 7 days. `/undo` lists them and reverses the one you pick: settings, saved records, created channels and roles, permission changes, bans, timeouts, role and nickname changes, AutoMod rules and posted panels. Before anything changes it shows what will be reversed and what can't be (a kick, deleted messages). Each undo is posted to the mod log.
 - **Privacy by default.** When the bot is removed from a server, that server's data is kept for 30 days in case it comes back, then deleted.
 - **Per-server settings.** Each Discord server has its own channels, rules and game server.
 
@@ -118,6 +119,7 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/antinuke` | Server owner | Sets how many destructive actions an account may do before losing its roles. |
 | `/reasons add\|remove\|list` | Manage Server | Manages saved reasons. |
 | `/setup` | Manage Server | Shows the setup wizard. |
+| `/undo` | Manage Server | Reverses a staff action from the last 7 days. You only see actions whose command you are allowed to use. |
 | `/config modlog\|reports\|suggestions\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, report and suggestion channels, appeals, auto-role, warning escalation and game server. |
 
 You can change who sees each staff command in **Server Settings → Integrations**.

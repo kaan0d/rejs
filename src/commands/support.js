@@ -6,6 +6,7 @@ const { db, setFeature } = require('../db');
 const { BRAND, ephemeral } = require('../util');
 const tickets = require('../tickets');
 const reports = require('../reports');
+const journal = require('../journal');
 
 const P = PermissionFlagsBits;
 const TEXT_CHANNELS = [ChannelType.GuildText];
@@ -45,13 +46,14 @@ async function ticketCommand(i) {
     if (!channel.permissionsFor(i.guild.members.me)?.has(THREAD_PERMISSIONS)) {
       return i.reply(ephemeral(`In ${channel} I need View Channel, Send Messages, Create Private Threads, Send Messages in Threads, Manage Threads and Embed Links.`));
     }
-    await channel.send({
+    const panel = await channel.send({
       embeds: [new EmbedBuilder()
         .setColor(BRAND)
         .setTitle(i.options.getString('title') ?? '🎫 Support')
         .setDescription(i.options.getString('message') ?? 'Need help? Pick a topic below. A private thread opens where only you and staff can talk.')],
       components: tickets.panelRows(cfg.categories),
     });
+    journal.created('message', panel);
     return i.reply(ephemeral(`✅ Panel posted in ${channel}. Tickets open as private threads there.`));
   }
 
@@ -96,10 +98,12 @@ async function ticketCommand(i) {
   const user = i.options.getUser('user', true);
   if (sub === 'add') {
     await i.channel.members.add(user.id);
+    journal.threadMember(i.channel, user.id, true);
     return i.reply(`➕ Added ${user} to this ticket.`);
   }
   if (user.id === ticket.user_id) return i.reply(ephemeral("You can't remove the member who opened the ticket. Close it instead."));
   await i.channel.members.remove(user.id);
+  journal.threadMember(i.channel, user.id, false);
   return i.reply(`➖ Removed ${user} from this ticket.`);
 }
 

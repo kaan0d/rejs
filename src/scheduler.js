@@ -4,6 +4,7 @@ const tickets = require('./tickets');
 const { deliverReminders } = require('./automation');
 const { checkGiveaways } = require('./giveaways');
 const { purgeDeparted } = require('./ops');
+const journal = require('./journal');
 
 const TICK_MS = 30_000;
 
@@ -19,7 +20,8 @@ async function run(client) {
 }
 
 // Scheduled messages, temporary bans, ticket auto-close, reminders, giveaways and data cleanup share one timer.
-const tick = (client) => Promise.all([run(client), expireBans(client), tickets.checkInactive(client), deliverReminders(client), checkGiveaways(client), purgeDeparted()]).catch((e) => console.error('Scheduler:', e));
+// Undo history older than 7 days is dropped on the same tick.
+const tick = (client) => Promise.all([run(client), expireBans(client), tickets.checkInactive(client), deliverReminders(client), checkGiveaways(client), purgeDeparted(), journal.purgeOld()]).catch((e) => console.error('Scheduler:', e));
 const start = (client) => {
   tick(client);
   setInterval(() => tick(client), TICK_MS);

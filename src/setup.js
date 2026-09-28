@@ -7,6 +7,7 @@ const { BRAND, ephemeral } = require('./util');
 const gate = require('./gate');
 const tickets = require('./tickets');
 const { isBlacklisted } = require('./ops');
+const journal = require('./journal');
 
 const P = PermissionFlagsBits;
 const LOG_CHANNELS = [
@@ -31,8 +32,10 @@ async function createLogs(guild) {
     ],
     reason: 'Setup wizard',
   });
+  journal.created('channel', category);
   for (const [name, save] of LOG_CHANNELS) {
     const channel = await guild.channels.create({ name, type: ChannelType.GuildText, parent: category.id, reason: 'Setup wizard' });
+    journal.created('channel', channel);
     save(guild.id, channel.id);
   }
   return `Created ${category} with ${LOG_CHANNELS.length} channels. Only admins can see it; give your moderator role access to the category.`;
@@ -40,6 +43,7 @@ async function createLogs(guild) {
 
 async function createVerify(guild) {
   const role = await guild.roles.create({ name: 'Verified', reason: 'Setup wizard' });
+  journal.created('role', role);
   const channel = await guild.channels.create({
     name: 'verify',
     type: ChannelType.GuildText,
@@ -49,6 +53,7 @@ async function createVerify(guild) {
     ],
     reason: 'Setup wizard',
   });
+  journal.created('channel', channel);
   await gate.postVerifyPanel(channel, role);
   return `Created ${role} and ${channel} with a Verify button. To make it required, hide your other channels from @everyone and show them to ${role}.`;
 }

@@ -5,6 +5,7 @@ const {
 const { getFeature, setFeature, getSettings } = require('./db');
 const { ephemeral } = require('./util');
 const mod = require('./moderation');
+const journal = require('./journal');
 
 const DEFAULTS = { enabled: false, joins: 20, seconds: 60, verification: true, lock: false, kick: false };
 const IDLE = { active: false };
@@ -80,10 +81,14 @@ async function endRaid(guild, moderator) {
   if (!state.active) return null;
   setFeature(guild.id, 'raid_state', IDLE);
 
-  if (state.verification !== null) await guild.setVerificationLevel(state.verification, 'Raid mode ended').catch(() => {});
+  if (state.verification !== null) {
+    journal.verificationLevel(guild);
+    await guild.setVerificationLevel(state.verification, 'Raid mode ended').catch(() => {});
+  }
   let unlocked = 0;
   for (const { id, previous } of state.locked) {
     const channel = guild.channels.cache.get(id);
+    if (channel) journal.overwrite(channel, guild.roles.everyone.id);
     if (await channel?.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: previous }, { reason: 'Raid mode ended' }).then(() => true, () => false)) unlocked++;
   }
   const summary = [

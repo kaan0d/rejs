@@ -4,6 +4,7 @@ const {
 } = require('discord.js');
 const { db, getSettings, getFeature, setFeature } = require('../db');
 const automation = require('../automation');
+const journal = require('../journal');
 const { formatDuration } = require('../monitor');
 const { BRAND, ephemeral, parseDuration } = require('../util');
 
@@ -24,14 +25,31 @@ async function upsertRule(guild, name, triggerType, triggerMetadata) {
   if (modlog_channel_id) actions.push({ type: AutoModerationActionType.SendAlertMessage, metadata: { channel: modlog_channel_id } });
 
   const existing = (await guild.autoModerationRules.fetch()).find((r) => r.name === name);
-  if (existing) return existing.edit({ triggerMetadata, actions, enabled: true });
-  return guild.autoModerationRules.create({
+  if (existing) {
+    journal.automod(existing, { triggerMetadata: existing.triggerMetadata, actions: actionsOf(existing), enabled: existing.enabled });
+    return existing.edit({ triggerMetadata, actions, enabled: true });
+  }
+  const rule = await guild.autoModerationRules.create({
     name, triggerType, triggerMetadata, actions, enabled: true, eventType: AutoModerationRuleEventType.MessageSend,
   });
+  journal.automod(rule);
+  return rule;
 }
+
+// A rule's actions in the shape create() and edit() accept, so /undo can put them back.
+const actionsOf = (rule) => rule.actions.map((a) => ({
+  type: a.type,
+  metadata: { channel: a.metadata.channelId ?? undefined, durationSeconds: a.metadata.durationSeconds ?? undefined, customMessage: a.metadata.customMessage ?? undefined },
+}));
 
 async function removeRule(guild, name) {
   const existing = (await guild.autoModerationRules.fetch()).find((r) => r.name === name);
+  if (existing) {
+    journal.deletedAutomod({
+      name: existing.name, eventType: existing.eventType, triggerType: existing.triggerType, triggerMetadata: existing.triggerMetadata,
+      actions: actionsOf(existing), enabled: existing.enabled, exemptRoles: [...existing.exemptRoles.keys()], exemptChannels: [...existing.exemptChannels.keys()],
+    });
+  }
   await existing?.delete();
   return Boolean(existing);
 }

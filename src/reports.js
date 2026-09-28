@@ -5,6 +5,7 @@ const {
 const { db, getFeature } = require('./db');
 const { ephemeral } = require('./util');
 const mod = require('./moderation');
+const journal = require('./journal');
 
 const P = PermissionFlagsBits;
 const COOLDOWN_MS = 60_000;
@@ -127,6 +128,7 @@ const handlers = {
 
   'report-delete': reportButton(P.ManageMessages, async (i, report) => {
     const channel = i.guild.channels.cache.get(report.channel_id);
+    journal.cannotUndo('Deleted the reported message');
     const ok = await channel?.messages.delete(report.message_id).then(() => true, () => false);
     if (!ok) return i.followUp(ephemeral('That message is already gone.'));
     await i.editReply({ components: [actionRow(report, { deleted: true })] });
@@ -140,6 +142,7 @@ const handlers = {
   })),
 
   'report-timeout': reportButton(P.ModerateMembers, (i, report, member) => punish(i, report, member, 'timeout', async (user, reason) => {
+    journal.timeout(member);
     await member.timeout(HOUR_MS, mod.auditReason(i.member, reason));
     await mod.notify(user, `🔇 You were timed out in **${i.guild.name}** for 1 hour: ${reason}`);
     return mod.recordCase(i.guild, { action: 'timeout', user, moderator: i.user, reason, durationMs: HOUR_MS });
@@ -149,6 +152,7 @@ const handlers = {
     if (member) await mod.notify(user, `🔨 You were banned from **${i.guild.name}**: ${reason}`);
     mod.closeBans(i.guildId, user.id);
     await i.guild.bans.create(user.id, { reason: mod.auditReason(i.member, reason) });
+    journal.banned(user.id);
     return mod.recordCase(i.guild, { action: 'ban', user, moderator: i.user, reason });
   })),
 

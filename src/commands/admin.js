@@ -4,6 +4,7 @@ const {
 const { getSettings, setSetting, getFeature, setFeature } = require('../db');
 const monitor = require('../monitor');
 const setup = require('../setup');
+const journal = require('../journal');
 const { BRAND, ephemeral, parseDuration } = require('../util');
 
 const TEXT_CHANNELS = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
@@ -190,6 +191,7 @@ module.exports = [
           target = recent.filter((m) => m.author.id === user.id).first(amount);
         }
         // Discord can't bulk delete messages older than 14 days; those are skipped.
+        journal.cannotUndo('Deleted messages');
         const deleted = await i.channel.bulkDelete(target, true);
         await i.editReply(`🧹 Deleted ${deleted.size} message${deleted.size === 1 ? '' : 's'}.`);
       } catch (e) {
