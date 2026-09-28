@@ -1,5 +1,6 @@
 const { db } = require('./db');
 const { expireBans } = require('./moderation');
+const tickets = require('./tickets');
 
 const TICK_MS = 30_000;
 
@@ -14,8 +15,8 @@ async function run(client) {
   }
 }
 
-// Scheduled messages and temporary bans share one timer.
-const tick = (client) => Promise.all([run(client), expireBans(client)]).catch((e) => console.error('Scheduler:', e));
+// Scheduled messages, temporary bans and ticket auto-close share one timer.
+const tick = (client) => Promise.all([run(client), expireBans(client), tickets.checkInactive(client)]).catch((e) => console.error('Scheduler:', e));
 const start = (client) => {
   tick(client);
   setInterval(() => tick(client), TICK_MS);

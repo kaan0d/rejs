@@ -17,6 +17,7 @@ module.exports = [
       for (const { data, owner } of i.client.commands.values()) {
         if (owner && !i.client.isOwner(i.user.id)) continue;
         const json = data.toJSON();
+        if (json.type !== 1) continue; // right-click menu commands are explained below
         const perms = json.default_member_permissions;
         // Only list commands this member can actually run.
         if (perms && !i.memberPermissions?.has(BigInt(perms))) continue;
@@ -28,6 +29,8 @@ module.exports = [
         const more = subs.length > 1 ? ` (${subs.join(', ')})` : '';
         (perms ? staff : everyone).push(`${name} · ${json.description}${more}`);
       }
+
+      everyone.push('', 'Right-click a message → **Apps** → **Report message** to report it to staff.');
 
       // Everyone and staff get their own embed, so each stays under the 4096-character limit.
       // ponytail: a message holds 6000 characters in total; past ~60 commands switch to a category menu.

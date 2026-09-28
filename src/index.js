@@ -9,17 +9,22 @@ const gate = require('./gate');
 const antiraid = require('./antiraid');
 const antinuke = require('./antinuke');
 const antispam = require('./antispam');
+const tickets = require('./tickets');
+const reports = require('./reports');
+const community = require('./community');
 const mod = require('./moderation');
 const updater = require('./updater');
 
 const commands = new Map(
-  ['general', 'info', 'moderation', 'cases', 'staff', 'bulk', 'protection', 'logs', 'automation', 'server', 'admin', 'owner']
+  ['general', 'info', 'moderation', 'cases', 'staff', 'bulk', 'protection', 'support', 'community', 'logs', 'automation', 'server', 'admin', 'owner']
     .flatMap((file) => require(`./commands/${file}`))
     .map((command) => [command.data.name, command]),
 );
 
 // Buttons and forms that must keep working after a restart, keyed by the custom ID prefix.
-const components = { ...appeals.handlers, ...gate.handlers, ...antiraid.handlers };
+const components = {
+  ...appeals.handlers, ...gate.handlers, ...antiraid.handlers, ...tickets.handlers, ...reports.handlers, ...community.handlers,
+};
 
 // Asks Discord which privileged intents are turned on, so a missing Message Content intent
 // switches message features off instead of failing to log in.
@@ -42,14 +47,14 @@ async function handleInteraction(interaction) {
     const focused = interaction.options.getFocused(true);
     return interaction.respond(focused.name === 'reason' ? mod.reasonChoices(interaction.guildId, focused.value) : []);
   }
-  if (interaction.isChatInputCommand()) {
+  if (interaction.isChatInputCommand() || interaction.isContextMenuCommand()) {
     const command = commands.get(interaction.commandName);
     if (command?.owner && !interaction.client.isOwner(interaction.user.id)) {
       return interaction.reply({ content: 'Only the bot owner can use this.', flags: MessageFlags.Ephemeral });
     }
     return command?.execute(interaction);
   }
-  if (interaction.isButton() || interaction.isModalSubmit()) {
+  if (interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu()) {
     const [name, arg] = interaction.customId.split(':');
     return components[name]?.(interaction, arg);
   }
@@ -104,7 +109,7 @@ async function main() {
     }
   });
 
-  for (const feature of [logs, gate, antiraid, antinuke, antispam]) feature.register(client);
+  for (const feature of [logs, gate, antiraid, antinuke, antispam, tickets, community]) feature.register(client);
   await client.login(token);
 }
 

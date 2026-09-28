@@ -74,6 +74,68 @@ db.exec(`
     PRIMARY KEY (guild_id, name)
   );
 
+  CREATE TABLE IF NOT EXISTS tickets (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    claimed_by TEXT,
+    rating INTEGER,
+    created_at INTEGER NOT NULL,
+    last_activity INTEGER NOT NULL,
+    warned_at INTEGER,
+    closed_at INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS tickets_open ON tickets (status, guild_id, user_id);
+
+  CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    reporter_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    channel_id TEXT,
+    message_id TEXT,
+    content TEXT,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    handled_by TEXT,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS role_menus (
+    message_id TEXT PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    max_choices INTEGER NOT NULL,
+    roles TEXT NOT NULL DEFAULT '[]'
+  );
+
+  CREATE TABLE IF NOT EXISTS suggestions (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    message_id TEXT,
+    user_id TEXT NOT NULL,
+    anonymous INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    status_reason TEXT,
+    handled_by TEXT,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS suggestion_votes (
+    suggestion_id INTEGER NOT NULL,
+    user_id TEXT NOT NULL,
+    vote INTEGER NOT NULL,
+    PRIMARY KEY (suggestion_id, user_id)
+  );
+
   CREATE TABLE IF NOT EXISTS schedules (
     id INTEGER PRIMARY KEY,
     guild_id TEXT NOT NULL,
