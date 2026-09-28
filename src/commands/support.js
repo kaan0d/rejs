@@ -3,7 +3,7 @@ const {
   InteractionContextType, MessageFlags, PermissionFlagsBits,
 } = require('discord.js');
 const { db, setFeature } = require('../db');
-const { BRAND, ephemeral } = require('../util');
+const { BRAND, ephemeral, toEmoji } = require('../util');
 const tickets = require('../tickets');
 const reports = require('../reports');
 const journal = require('../journal');
@@ -24,6 +24,8 @@ async function ticketCommand(i) {
     if (cfg.categories.length >= 25) return i.reply(ephemeral('You can have up to 25 ticket types.'));
     if (cfg.categories.some((c) => c.id === id)) return i.reply(ephemeral(`There is already a "${label}" ticket type.`));
     const role = i.options.getRole('staff_role');
+    const emoji = i.options.getString('emoji');
+    if (emoji && !toEmoji(emoji)) return i.reply(ephemeral('That emoji won\'t work on a button. Use a normal emoji like 🛠️, or a server emoji picked from the emoji menu.'));
     cfg.categories.push({ id, label, roleId: role?.id ?? null, emoji: i.options.getString('emoji') });
     setFeature(i.guildId, 'tickets', cfg);
     const mentionNote = role && !role.mentionable && !i.guild.members.me.permissions.has(P.MentionEveryone)

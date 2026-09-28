@@ -1,4 +1,5 @@
 // Builds a standalone HTML page of a ticket conversation.
+const { textOf } = require('./ui');
 
 const escape = (text) => String(text ?? '')
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -14,7 +15,8 @@ const format = (text) => escape(text)
 
 function messageHtml(m) {
   const parts = [];
-  if (m.content) parts.push(`<div class="text">${format(m.content)}</div>`);
+  const text = m.content || textOf(m);
+  if (text) parts.push(`<div class="text">${format(text)}</div>`);
   for (const e of m.embeds) {
     const body = [e.title && `<b>${escape(e.title)}</b>`, e.description && format(e.description)].filter(Boolean).join('<br>');
     if (body) parts.push(`<div class="embed">${body}</div>`);

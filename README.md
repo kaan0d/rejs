@@ -4,6 +4,8 @@
 
 Everything is a slash command. Staff commands are hidden from members who can't use them.
 
+Every message the bot sends, including replies, DMs, logs and panels, is a card built with Discord's Components V2: an accent color that shows the outcome (green done, red error, orange warning), headings, avatar thumbnails, image galleries, separators, and buttons and menus inside the card. Forms use labels, hints and select menus.
+
 ## Features
 
 - **Moderation with a paper trail.** Warnings, timeouts, kicks, bans (permanent or timed), softbans, channel locks and slowmode. Every action becomes a numbered case in the mod log and Discord's audit log, and the member gets a DM when possible. `/history` shows a member's full record, including private staff notes. The bot won't let a moderator act on someone with an equal or higher role.

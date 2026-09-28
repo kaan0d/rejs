@@ -5,6 +5,7 @@ const { getFeature, setFeature, getSettings } = require('./db');
 const { BRAND, ephemeral } = require('./util');
 const { formatDuration } = require('./monitor');
 const mod = require('./moderation');
+const ui = require('./ui');
 const journal = require('./journal');
 
 const AGE_DEFAULTS = { enabled: false, minAgeMs: 7 * 86_400_000, roleId: null, channelId: null };
@@ -129,8 +130,7 @@ function gateButton(permission, action) {
     }
     const result = await action(i, member);
     if (!result) return;
-    const embed = EmbedBuilder.from(i.message.embeds[0]).setFooter({ text: `${result} by ${i.user.tag}` });
-    await i.editReply({ embeds: [embed], components: [] });
+    await i.editReply(ui.finishCard(i.message, { status: `${result} by ${i.user.tag}`, color: result === 'Approved' ? Colors.Green : Colors.Red }));
   };
 }
 

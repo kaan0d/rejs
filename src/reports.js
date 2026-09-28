@@ -1,10 +1,11 @@
 const {
-  EmbedBuilder, Colors, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle,
+  EmbedBuilder, Colors, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputStyle,
   PermissionFlagsBits, escapeMarkdown,
 } = require('discord.js');
 const { db, getFeature } = require('./db');
 const { ephemeral } = require('./util');
 const mod = require('./moderation');
+const ui = require('./ui');
 const journal = require('./journal');
 
 const P = PermissionFlagsBits;
@@ -18,11 +19,22 @@ const pending = new Map();
 const getReport = (id) => db.prepare('SELECT * FROM reports WHERE id = ?').get(Number(id));
 const clip = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
-const reasonModal = (customId, title) => new ModalBuilder()
+const CATEGORIES = [
+  { label: 'Spam or advertising', value: 'Spam', emoji: { name: '📢' } },
+  { label: 'Harassment or hate', value: 'Harassment', emoji: { name: '😠' } },
+  { label: 'NSFW or gore', value: 'NSFW', emoji: { name: '🔞' } },
+  { label: 'Scam or phishing link', value: 'Scam', emoji: { name: '🎣' } },
+  { label: 'Something else', value: 'Other', emoji: { name: '❓' } },
+];
+
+// The report form: what the message said, a category to pick and optional details.
+const reasonModal = (customId, message) => new ModalBuilder()
   .setCustomId(customId)
-  .setTitle(title)
-  .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-    .setCustomId('reason').setLabel('What is wrong?').setStyle(TextInputStyle.Paragraph).setMinLength(3).setMaxLength(500)));
+  .setTitle('Report message')
+  .addTextDisplayComponents((t) => t.setContent(`Reporting a message by **${message.author.username}**:\n> ${(message.content || '*no text*').slice(0, 300).replaceAll('\n', ' ')}`))
+  .addLabelComponents((l) => l.setLabel("What's wrong?").setStringSelectMenuComponent((s) => s.setCustomId('category').setPlaceholder('Pick one').addOptions(CATEGORIES)))
+  .addLabelComponents((l) => l.setLabel('Details').setDescription('Optional, but it helps staff act faster')
+    .setTextInputComponent((t) => t.setCustomId('reason').setStyle(TextInputStyle.Paragraph).setMaxLength(500).setRequired(false)));
 
 function actionRow(report, { deleted = false } = {}) {
   const row = new ActionRowBuilder();
@@ -74,8 +86,7 @@ async function createReport(guild, reporter, target, reason, message = null) {
 // Marks the report handled, updates the staff message and tells the reporter.
 async function finish(i, report, status, label, color) {
   db.prepare('UPDATE reports SET status = ?, handled_by = ? WHERE id = ?').run(status, i.user.id, report.id);
-  const embed = EmbedBuilder.from(i.message.embeds[0]).setColor(color).setFooter({ text: `${label} by ${i.user.tag}` });
-  await i.editReply({ embeds: [embed], components: [] });
+  await i.editReply(ui.finishCard(i.message, { status: `${label} by ${i.user.tag}`, color }));
   const reporter = await i.client.users.fetch(report.reporter_id).catch(() => null);
   await mod.notify(reporter, status === 'dismissed'
     ? `Thanks for your report #${report.id} in **${i.guild.name}**. Staff reviewed it and took no action.`
@@ -122,7 +133,9 @@ const handlers = {
     const saved = pending.get(`${i.user.id}:${key}`);
     pending.delete(`${i.user.id}:${key}`);
     if (!saved) return i.reply(ephemeral('That form expired. Please report the message again.'));
-    const error = await createReport(i.guild, i.user, saved.author, i.fields.getTextInputValue('reason'), saved.message);
+    const details = i.fields.getTextInputValue('reason').trim();
+    const reason = `${i.fields.getStringSelectValues('category')[0]}${details ? `: ${details}` : ''}`;
+    const error = await createReport(i.guild, i.user, saved.author, reason, saved.message);
     return i.reply(ephemeral(error ?? '✅ Thanks. Your report was sent to the staff.'));
   },
 
@@ -168,7 +181,7 @@ async function reportMessage(i) {
   if (message.author.id === i.user.id) return i.reply(ephemeral("You can't report yourself."));
   pending.set(`${i.user.id}:${message.id}`, { author: message.author, message });
   setTimeout(() => pending.delete(`${i.user.id}:${message.id}`), 15 * 60_000).unref();
-  await i.showModal(reasonModal(`report-form:${message.id}`, 'Report message'));
+  await i.showModal(reasonModal(`report-form:${message.id}`, message));
 }
 
 module.exports = { handlers, createReport, reportMessage, reasonModal };
