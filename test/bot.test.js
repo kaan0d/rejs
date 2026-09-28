@@ -114,3 +114,65 @@ test('decancer makes names readable', () => {
   assert.equal(mod.decancer('Çağrı'), 'Çağrı');
   assert.equal(mod.decancer('ﾠ​'), 'Moderated nickname');
 });
+
+const antispam = require('../src/antispam');
+const antinuke = require('../src/antinuke');
+const antiraid = require('../src/antiraid');
+const gate = require('../src/gate');
+const { setFeature, getFeature } = require('../src/db');
+
+test('anti-spam catches floods, repeats, caps, emojis and links', () => {
+  const cfg = { ...antispam.DEFAULTS, enabled: true };
+  const t = 1_000_000;
+  for (let n = 0; n < 5; n++) assert.equal(antispam.check('f', `msg ${n}`, cfg, t + n * 100), null);
+  assert.match(antispam.check('f', 'msg 5', cfg, t + 500), /too fast/);
+  assert.equal(antispam.check('d', 'buy now', cfg, t), null);
+  assert.equal(antispam.check('d', 'Buy now', cfg, t + 2000), null);
+  assert.match(antispam.check('d', 'buy now ', cfg, t + 4000), /same message/);
+  assert.match(antispam.check('c', 'WHY IS NOBODY ANSWERING', cfg, t), /capital/);
+  assert.equal(antispam.check('c2', 'OK lol', cfg, t), null);
+  assert.match(antispam.check('e', '🔥'.repeat(11), cfg, t), /emojis/);
+  const links = { ...cfg, links: 'allowlist', allowedDomains: ['youtube.com'] };
+  assert.equal(antispam.check('l', 'look https://www.youtube.com/watch?v=1', links, t), null);
+  assert.equal(antispam.check('l2', 'https://m.youtube.com/x', links, t), null);
+  assert.match(antispam.check('l3', 'free nitro https://steamcommunity.gift/x', links, t), /steamcommunity\.gift/);
+});
+
+test('anti-nuke fires once the limit is reached inside the window', () => {
+  const cfg = { enabled: true, limit: 3, seconds: 10 };
+  assert.equal(antinuke.track('g', 'x', 'ban', cfg, 0), null);
+  assert.equal(antinuke.track('g', 'x', 'ban', cfg, 1000), null);
+  assert.equal(antinuke.track('g', 'y', 'ban', cfg, 1500), null);
+  assert.equal(antinuke.track('g', 'x', 'channel delete', cfg, 20_000), null);
+  assert.equal(antinuke.track('g', 'x', 'ban', cfg, 21_000), null);
+  assert.equal(antinuke.track('g', 'x', 'role delete', cfg, 22_000).length, 3);
+});
+
+test('anti-raid starts raid mode at the join limit and ending it restores verification', async () => {
+  const levels = [];
+  const guild = {
+    id: 'raid-g',
+    verificationLevel: 1,
+    roles: { everyone: { id: 'raid-g' } },
+    channels: { cache: new Map() },
+    members: { fetch: async () => null },
+    fetchOwner: async () => ({ send: async () => {} }),
+    setVerificationLevel: async (level) => { levels.push(level); guild.verificationLevel = level; },
+  };
+  setFeature('raid-g', 'antiraid', { ...antiraid.DEFAULTS, enabled: true, joins: 3, seconds: 60 });
+  for (let n = 0; n < 3; n++) await antiraid.onJoin({ id: `u${n}`, guild, kickable: false });
+  assert.equal(getFeature('raid-g', 'raid_state', antiraid.IDLE).active, true);
+  assert.deepEqual(levels, [4]);
+  assert.match(await antiraid.endRaid(guild, { id: 'm' }), /verification level restored/);
+  assert.deepEqual(levels, [4, 1]);
+  assert.equal(getFeature('raid-g', 'raid_state', antiraid.IDLE).active, false);
+});
+
+test('age gate only quarantines new human accounts when on', () => {
+  const member = (ageDays, bot = false) => ({ guild: { id: 'age-g' }, user: { bot, createdTimestamp: Date.now() - ageDays * 86_400_000 } });
+  assert.equal(gate.shouldQuarantine(member(1)), false);
+  setFeature('age-g', 'agegate', { ...gate.AGE_DEFAULTS, enabled: true, minAgeMs: 7 * 86_400_000 });
+  assert.equal(gate.shouldQuarantine(member(1)), true);
+  assert.equal(gate.shouldQuarantine(member(30)), false);
+  assert.equal(gate.shouldQuarantine(member(1, true)), false);
+});

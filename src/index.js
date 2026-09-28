@@ -1,22 +1,25 @@
 const {
   Client, Events, GatewayIntentBits, Partials, MessageFlags, REST, Routes, ApplicationFlagsBitField,
 } = require('discord.js');
-const { getSettings } = require('./db');
 const monitor = require('./monitor');
 const scheduler = require('./scheduler');
 const logs = require('./logs');
 const appeals = require('./appeals');
+const gate = require('./gate');
+const antiraid = require('./antiraid');
+const antinuke = require('./antinuke');
+const antispam = require('./antispam');
 const mod = require('./moderation');
 const updater = require('./updater');
 
 const commands = new Map(
-  ['general', 'info', 'moderation', 'cases', 'staff', 'bulk', 'logs', 'automation', 'server', 'admin', 'owner']
+  ['general', 'info', 'moderation', 'cases', 'staff', 'bulk', 'protection', 'logs', 'automation', 'server', 'admin', 'owner']
     .flatMap((file) => require(`./commands/${file}`))
     .map((command) => [command.data.name, command]),
 );
 
 // Buttons and forms that must keep working after a restart, keyed by the custom ID prefix.
-const components = { ...appeals.handlers };
+const components = { ...appeals.handlers, ...gate.handlers, ...antiraid.handlers };
 
 // Asks Discord which privileged intents are turned on, so a missing Message Content intent
 // switches message features off instead of failing to log in.
@@ -63,6 +66,8 @@ async function main() {
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildVoiceStates,
+      // Delivers audit log entries, which anti-nuke uses to see who did what.
+      GatewayIntentBits.GuildModeration,
       ...(messageContent ? [GatewayIntentBits.MessageContent] : []),
     ],
     // Lets delete and leave events arrive for messages and members the bot hasn't cached.
@@ -99,16 +104,7 @@ async function main() {
     }
   });
 
-  // Members still on the rules screen get the role once they accept.
-  async function giveAutoRole(member) {
-    const { autorole_id } = getSettings(member.guild.id);
-    if (!autorole_id || member.user.bot || member.pending) return;
-    await member.roles.add(autorole_id, 'Auto-role').catch((e) => console.error(`Auto-role in ${member.guild.id}: ${e.message}`));
-  }
-  client.on(Events.GuildMemberAdd, giveAutoRole);
-  client.on(Events.GuildMemberUpdate, (before, after) => !before.partial && before.pending && !after.pending && giveAutoRole(after));
-
-  logs.register(client);
+  for (const feature of [logs, gate, antiraid, antinuke, antispam]) feature.register(client);
   await client.login(token);
 }
 
