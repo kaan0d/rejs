@@ -66,6 +66,14 @@ db.exec(`
     PRIMARY KEY (guild_id, target_id)
   );
 
+  -- One JSON settings blob per protection feature, so new options need no schema change.
+  CREATE TABLE IF NOT EXISTS features (
+    guild_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    config TEXT NOT NULL,
+    PRIMARY KEY (guild_id, name)
+  );
+
   CREATE TABLE IF NOT EXISTS schedules (
     id INTEGER PRIMARY KEY,
     guild_id TEXT NOT NULL,
@@ -102,4 +110,16 @@ const setSetting = (guildId, column, value) =>
     ON CONFLICT (guild_id) DO UPDATE SET ${column} = excluded.${column}
   `).run(guildId, value);
 
-module.exports = { db, getSettings, setSetting };
+// Feature settings merged over their defaults, so older saved settings pick up new options.
+function getFeature(guildId, name, defaults = {}) {
+  const row = db.prepare('SELECT config FROM features WHERE guild_id = ? AND name = ?').get(guildId, name);
+  return { ...defaults, ...(row ? JSON.parse(row.config) : {}) };
+}
+
+const setFeature = (guildId, name, config) =>
+  db.prepare(`
+    INSERT INTO features (guild_id, name, config) VALUES (?, ?, ?)
+    ON CONFLICT (guild_id, name) DO UPDATE SET config = excluded.config
+  `).run(guildId, name, JSON.stringify(config));
+
+module.exports = { db, getSettings, setSetting, getFeature, setFeature };

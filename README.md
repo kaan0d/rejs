@@ -11,6 +11,11 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 - **Ban appeals.** Ban DMs include an Appeal button. Appeals arrive in a staff channel with Accept and Deny buttons; accepted members get a single-use invite back.
 - **Event logs.** Separate channels for message edits and deletes, member joins, leaves and changes (new accounts are flagged), and voice activity. Channels and roles can be left out of the logs.
 - **Warning escalation.** Members can be timed out or kicked automatically after a set number of warnings. Warnings can expire after a set time.
+- **Anti-raid.** When many accounts join at once (20 in 60 seconds by default), the bot can raise the verification level, lock channels and kick the raiders, and it pings staff. One button undoes it all.
+- **Anti-nuke.** If any account except the owner bans, kicks, or deletes channels or roles too fast, the bot strips its roles and alerts the owner. Protects against hijacked admin accounts. Only the server owner can change this setting.
+- **Anti-spam.** Floods, repeated messages, all-caps, emoji walls and links (block all, or allow only chosen domains). Spam is deleted and counts as a warning, so escalation takes over. Needs the Message Content intent.
+- **Age gate.** Accounts younger than a set age get a Quarantine role that only sees a quarantine channel. The bot creates both. Staff approve, kick or ban them with buttons in the mod log.
+- **Verification.** A panel with a button that gives members a role.
 - **Bulk actions.** Ban up to 200 user IDs in one request (useful in a raid), kick or time out a list of members, or give or take a role across the whole server. Every bulk action asks for confirmation first.
 - **AutoMod.** `/automod` switches on Discord's own filters: blocked words, invite links, mention spam and spam. Discord enforces them even while the bot is offline.
 - **Auto-role.** New members get a role when they join, or after they accept the rules.
@@ -23,7 +28,7 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 Requires **Node.js 22.13 or newer**. The bot uses Node's built-in SQLite, so there is nothing to compile.
 
 1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications). Under **Bot**, turn on **Server Members Intent** (required). Turn on **Message Content Intent** too if you want message text in the logs. Without it the bot still runs, but deleted messages are logged without their text and edits are not logged.
-2. Invite the bot with the `bot` and `applications.commands` scopes. Giving it **Administrator** is simplest. At minimum it needs: View Channels, Send Messages, Embed Links, Attach Files, Manage Messages, Manage Roles, Manage Channels, Manage Nicknames, Moderate Members, Kick Members, Ban Members, Create Invite (for accepted appeals) and Manage Server (for AutoMod and bulk bans). Put the bot's role above every role it should manage.
+2. Invite the bot with the `bot` and `applications.commands` scopes. Giving it **Administrator** is simplest. At minimum it needs: View Channels, Send Messages, Embed Links, Attach Files, Manage Messages, Manage Roles, Manage Channels, Manage Nicknames, Moderate Members, Kick Members, Ban Members, Create Invite (for accepted appeals), View Audit Log (for anti-nuke) and Manage Server (for AutoMod, bulk bans and raising the verification level during a raid). Put the bot's role above every role it should manage.
 3. Install and configure:
    ```sh
    git clone https://github.com/kaan0d/rejs.git
@@ -73,6 +78,13 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/automod words\|invites\|mentions\|spam\|show` | Manage Server | Turns Discord's AutoMod filters on or off. |
 | `/schedule add\|list\|remove` | Manage Server | Sets up repeating messages, at least 10 minutes apart. |
 | `/logs set\|ignore\|unignore\|show` | Manage Server | Chooses the log channels and what they skip. |
+| `/protection` | Manage Server | Shows the state of every protection feature. |
+| `/antiraid set\|end` | Manage Server | Sets raid detection and its actions, or ends raid mode. |
+| `/antispam` | Manage Server | Sets the spam filters. Options you leave empty keep their value. |
+| `/agegate set\|off` | Manage Server | Quarantines accounts younger than a minimum age. |
+| `/verification setup\|off` | Manage Server | Posts a verify button that gives a role. |
+| `/approve <user>` | Moderate Members | Lets a quarantined member in. |
+| `/antinuke` | Server owner | Sets how many destructive actions an account may do before losing its roles. |
 | `/reasons add\|remove\|list` | Manage Server | Manages saved reasons. |
 | `/config modlog\|appeals\|autorole\|warn-escalation\|monitor\|monitor-off\|show` | Manage Server | Sets up the mod log, appeals, auto-role, warning escalation and game server. |
 

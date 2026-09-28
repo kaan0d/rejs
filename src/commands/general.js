@@ -29,14 +29,11 @@ module.exports = [
         (perms ? staff : everyone).push(`${name} · ${json.description}${more}`);
       }
 
-      const description = [
-        '**Commands**', ...everyone,
-        ...(staff.length ? ['', '**Staff**', ...staff] : []),
-      ].join('\n');
-      await i.reply({
-        embeds: [new EmbedBuilder().setColor(BRAND).setTitle(`👋 ${i.client.user.username}`).setDescription(description)],
-        flags: MessageFlags.Ephemeral,
-      });
+      // Everyone and staff get their own embed, so each stays under the 4096-character limit.
+      // ponytail: a message holds 6000 characters in total; past ~60 commands switch to a category menu.
+      const embeds = [new EmbedBuilder().setColor(BRAND).setTitle(`👋 ${i.client.user.username}`).setDescription(everyone.join('\n'))];
+      if (staff.length) embeds.push(new EmbedBuilder().setColor(BRAND).setTitle('🛠️ Staff').setDescription(staff.join('\n')));
+      await i.reply({ embeds, flags: MessageFlags.Ephemeral });
     },
   },
 ];
