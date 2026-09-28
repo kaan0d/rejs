@@ -1,5 +1,8 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 
+// Info embeds use the brand color; success, warning and error keep green, orange and red.
+const BRAND = 0x2B2D31;
+
 const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral });
 
 const UNITS = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000, w: 604_800_000 };
@@ -31,4 +34,4 @@ async function confirm(i, content, label) {
   return null;
 }
 
-module.exports = { ephemeral, parseDuration, confirm };
+module.exports = { BRAND, ephemeral, parseDuration, confirm };

@@ -1,4 +1,5 @@
 const { db } = require('./db');
+const { expireBans } = require('./moderation');
 
 const TICK_MS = 30_000;
 
@@ -13,6 +14,11 @@ async function run(client) {
   }
 }
 
-const start = (client) => setInterval(() => run(client).catch((e) => console.error('Scheduler:', e)), TICK_MS);
+// Scheduled messages and temporary bans share one timer.
+const tick = (client) => Promise.all([run(client), expireBans(client)]).catch((e) => console.error('Scheduler:', e));
+const start = (client) => {
+  tick(client);
+  setInterval(() => tick(client), TICK_MS);
+};
 
 module.exports = { start, run };

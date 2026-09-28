@@ -1,9 +1,9 @@
 const {
-  SlashCommandBuilder, EmbedBuilder, ChannelType, Colors, InteractionContextType, MessageFlags, PermissionFlagsBits,
+  SlashCommandBuilder, EmbedBuilder, ChannelType, InteractionContextType, MessageFlags, PermissionFlagsBits,
 } = require('discord.js');
 const { getSettings, setSetting } = require('../db');
 const monitor = require('../monitor');
-const { ephemeral, parseDuration } = require('../util');
+const { BRAND, ephemeral, parseDuration } = require('../util');
 
 const TEXT_CHANNELS = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
 const POST_PERMISSIONS = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
@@ -47,6 +47,15 @@ async function configure(i) {
       : '✅ Moderation log is off.'));
   }
 
+  if (sub === 'appeals') {
+    const channel = i.options.getChannel('channel');
+    if (channel && !canPost(channel)) return i.reply(ephemeral(`I can't post in ${channel}. I need View Channel, Send Messages and Embed Links there.`));
+    setSetting(i.guildId, 'appeals_channel_id', channel?.id ?? null);
+    return i.reply(ephemeral(channel
+      ? `✅ Ban DMs now include an Appeal button. Appeals go to ${channel}, where anyone with Ban Members can accept or deny them.`
+      : '✅ Ban appeals are off.'));
+  }
+
   if (sub === 'autorole') {
     const role = i.options.getRole('role');
     if (role && (role.managed || role.id === i.guildId)) return i.reply(ephemeral("That role can't be handed out."));
@@ -62,32 +71,41 @@ async function configure(i) {
     const kickAt = i.options.getInteger('kick_at', true);
     const duration = parseDuration(i.options.getString('timeout_duration') ?? '1h');
     if (!duration || duration > 28 * 86_400_000) return i.reply(ephemeral('Use a timeout duration like `30m`, `1h` or `1d`, up to 28 days.'));
+    const expiryText = i.options.getString('expire_after');
+    const expiry = expiryText && expiryText.trim() !== '0' ? parseDuration(expiryText) : null;
+    if (expiryText && expiryText.trim() !== '0' && !expiry) return i.reply(ephemeral('Use an expiry like `30d` or `12w`, or `0` for never.'));
     setSetting(i.guildId, 'warn_timeout_at', timeoutAt || null);
     setSetting(i.guildId, 'warn_timeout_ms', duration);
     setSetting(i.guildId, 'warn_kick_at', kickAt || null);
+    if (expiryText) setSetting(i.guildId, 'warn_expiry_ms', expiry);
     const rules = [
       timeoutAt && `timed out for ${monitor.formatDuration(duration)} at ${timeoutAt} warnings`,
       kickAt && `kicked at ${kickAt} warnings`,
     ].filter(Boolean);
-    return i.reply(ephemeral(rules.length ? `✅ Members will be automatically ${rules.join(', and ')}.` : '✅ Warning escalation is off.'));
+    const expires = getSettings(i.guildId).warn_expiry_ms;
+    const expiryNote = expires ? ` Warnings stop counting after ${monitor.formatDuration(expires)}.` : ' Warnings never expire.';
+    return i.reply(ephemeral((rules.length ? `✅ Members will be automatically ${rules.join(', and ')}.` : '✅ Warning escalation is off.') + expiryNote));
   }
 
   const settings = getSettings(i.guildId);
   const escalation = [
     settings.warn_timeout_at && `Timeout (${monitor.formatDuration(settings.warn_timeout_ms)}) at ${settings.warn_timeout_at} warnings`,
     settings.warn_kick_at && `Kick at ${settings.warn_kick_at} warnings`,
+    settings.warn_expiry_ms && `Warnings expire after ${monitor.formatDuration(settings.warn_expiry_ms)}`,
   ].filter(Boolean);
   return i.reply({
     flags: MessageFlags.Ephemeral,
     embeds: [new EmbedBuilder()
-      .setColor(Colors.Blurple)
+      .setColor(BRAND)
       .setTitle('⚙️ Settings')
       .addFields(
         { name: 'Game server', value: settings.server_url ? `\`${settings.server_url}\` → <#${settings.monitor_channel_id}>` : 'Off' },
         { name: 'Mod log', value: settings.modlog_channel_id ? `<#${settings.modlog_channel_id}>` : 'Off', inline: true },
+        { name: 'Appeals', value: settings.appeals_channel_id ? `<#${settings.appeals_channel_id}>` : 'Off', inline: true },
         { name: 'Auto-role', value: settings.autorole_id ? `<@&${settings.autorole_id}>` : 'Off', inline: true },
         { name: 'Warning escalation', value: escalation.join('\n') || 'Off' },
-      )],
+      )
+      .setFooter({ text: 'Event logs: /logs show' })],
   });
 }
 
@@ -104,12 +122,15 @@ module.exports = [
       .addSubcommand((s) => s.setName('monitor-off').setDescription('Stop watching the game server'))
       .addSubcommand((s) => s.setName('modlog').setDescription('Where to log moderation actions and AutoMod alerts')
         .addChannelOption((o) => o.setName('channel').setDescription('Leave empty to turn the log off').addChannelTypes(...TEXT_CHANNELS)))
+      .addSubcommand((s) => s.setName('appeals').setDescription('Let banned members appeal from their ban DM')
+        .addChannelOption((o) => o.setName('channel').setDescription('Where appeals go. Leave empty to turn appeals off').addChannelTypes(...TEXT_CHANNELS)))
       .addSubcommand((s) => s.setName('autorole').setDescription('Give new members a role when they join')
         .addRoleOption((o) => o.setName('role').setDescription('Leave empty to turn auto-role off')))
       .addSubcommand((s) => s.setName('warn-escalation').setDescription('Automatically punish members who collect warnings')
         .addIntegerOption((o) => o.setName('timeout_at').setDescription('Warnings before a timeout (0 = never)').setMinValue(0).setMaxValue(50).setRequired(true))
         .addIntegerOption((o) => o.setName('kick_at').setDescription('Warnings before a kick (0 = never)').setMinValue(0).setMaxValue(50).setRequired(true))
-        .addStringOption((o) => o.setName('timeout_duration').setDescription('How long the timeout lasts (default 1h)')))
+        .addStringOption((o) => o.setName('timeout_duration').setDescription('How long the timeout lasts (default 1h)'))
+        .addStringOption((o) => o.setName('expire_after').setDescription('Warnings stop counting after, e.g. 30d. 0 = never')))
       .addSubcommand((s) => s.setName('show').setDescription('Show current settings')),
     execute: configure,
   },

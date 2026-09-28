@@ -55,3 +55,62 @@ test('scheduler posts once and skips runs missed while offline', async () => {
   const { next_run_at } = db.prepare('SELECT next_run_at FROM schedules').get();
   assert.equal(next_run_at, due + 4 * hour);
 });
+
+const { setSetting } = require('../src/db');
+
+const fakeGuild = (id) => ({ id, channels: { cache: new Map() } });
+const user = (id) => ({ id, tag: `user${id}` });
+
+test('cases are numbered per server', async () => {
+  const a = fakeGuild('cases-a');
+  const b = fakeGuild('cases-b');
+  assert.equal(await mod.recordCase(a, { action: 'warn', user: user('1'), moderator: user('m'), reason: 'x' }), 1);
+  assert.equal(await mod.recordCase(a, { action: 'note', user: user('1'), moderator: user('m'), reason: 'y' }), 2);
+  assert.equal(await mod.recordCase(b, { action: 'kick', user: user('1'), moderator: user('m') }), 1);
+  assert.equal(mod.getCase('cases-b', 1).reason, 'No reason given');
+});
+
+test('warnings stop counting when removed or expired', async () => {
+  const g = fakeGuild('warn-g');
+  for (let n = 0; n < 3; n++) await mod.recordCase(g, { action: 'warn', user: user('7'), moderator: user('m'), reason: 'r' });
+  assert.equal(mod.activeWarnings('warn-g', '7'), 3);
+  db.prepare("UPDATE cases SET active = 0 WHERE guild_id = 'warn-g' AND number = 1").run();
+  db.prepare("UPDATE cases SET created_at = ? WHERE guild_id = 'warn-g' AND number = 2").run(Date.now() - 40 * 86_400_000);
+  assert.equal(mod.activeWarnings('warn-g', '7'), 2);
+  setSetting('warn-g', 'warn_expiry_ms', 30 * 86_400_000);
+  assert.equal(mod.activeWarnings('warn-g', '7'), 1);
+});
+
+test('temporary bans are lifted once and logged as an unban case', async () => {
+  const removed = [];
+  const g = { ...fakeGuild('tb-g'), bans: { remove: async (id) => { removed.push(id); return user(id); } } };
+  await mod.recordCase(g, { action: 'ban', user: user('9'), moderator: user('m'), durationMs: 1, expiresAt: Date.now() - 1 });
+  await mod.recordCase(g, { action: 'ban', user: user('8'), moderator: user('m'), durationMs: 1, expiresAt: Date.now() + 86_400_000 });
+  const client = { user: user('bot'), guilds: { cache: new Map([['tb-g', g]]) } };
+  await mod.expireBans(client);
+  await mod.expireBans(client);
+  assert.deepEqual(removed, ['9']);
+  assert.equal(mod.getCase('tb-g', 3).action, 'unban');
+});
+
+test('a new ban or manual unban cancels a pending temporary ban', async () => {
+  const g = fakeGuild('tb-cancel');
+  await mod.recordCase(g, { action: 'ban', user: user('5'), moderator: user('m'), expiresAt: Date.now() - 1 });
+  mod.closeBans('tb-cancel', '5');
+  assert.equal(mod.getCase('tb-cancel', 1).active, 0);
+});
+
+test('saved reasons autocomplete by partial match', () => {
+  for (const text of ['Spam', 'NSFW content', 'Advertising spam links']) db.prepare("INSERT INTO reasons VALUES ('rs', ?)").run(text);
+  assert.deepEqual(mod.reasonChoices('rs', 'spam').map((c) => c.value), ['Advertising spam links', 'Spam']);
+  assert.equal(mod.reasonChoices('other-guild', '').length, 0);
+});
+
+test('decancer makes names readable', () => {
+  assert.equal(mod.decancer('𝓚𝓪𝓪𝓷'), 'Kaan');
+  assert.equal(mod.decancer('!!! Hoister'), 'Hoister');
+  assert.equal(mod.decancer('Z̷̢̛a̶̧̛l̵̢̛g̴̨̛ơ̵̢'), 'Zalgo');
+  assert.equal(mod.decancer('A​l​i'), 'Ali');
+  assert.equal(mod.decancer('Çağrı'), 'Çağrı');
+  assert.equal(mod.decancer('ﾠ​'), 'Moderated nickname');
+});
