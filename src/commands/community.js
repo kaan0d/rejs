@@ -2,6 +2,7 @@ const { SlashCommandBuilder, ChannelType, InteractionContextType, PermissionFlag
 const { db, getFeature, setFeature } = require('../db');
 const { BRAND, ephemeral } = require('../util');
 const community = require('../community');
+const journal = require('../journal');
 
 const P = PermissionFlagsBits;
 const TEXT_CHANNELS = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
@@ -19,6 +20,7 @@ async function rolemenu(i) {
     const channel = i.options.getChannel('channel', true);
     if (!canPost(i, channel)) return i.reply(ephemeral(`I can't post in ${channel}.`));
     const message = await channel.send({ embeds: [new EmbedBuilder().setColor(BRAND).setDescription('Setting up…')] });
+    journal.created('message', message);
     db.prepare('INSERT INTO role_menus (message_id, guild_id, channel_id, title, description, max_choices) VALUES (?, ?, ?, ?, ?, ?)')
       .run(message.id, i.guildId, channel.id, i.options.getString('title', true), i.options.getString('description'), i.options.getBoolean('pick_one') ? 1 : 25);
     await message.edit(community.menuMessage(i.guild, community.getMenu(message.id)));
@@ -38,6 +40,7 @@ async function rolemenu(i) {
   } else {
     menu.roles = menu.roles.filter((r) => r.roleId !== role.id);
   }
+  journal.refresh('rolemenu', menu.message_id);
   community.saveMenu(menu);
   const ok = await community.refreshMenu(i.guild, menu);
   return i.reply(ephemeral(ok ? `✅ Menu updated.` : '⚠️ Saved, but I could not find the menu message. Was it deleted?'));
@@ -95,6 +98,7 @@ async function suggestion(i) {
   const s = community.getSuggestion(id);
   if (!s || s.guild_id !== i.guildId) return i.reply(ephemeral(`There is no suggestion #${id}.`));
   if (sub === 'author') return i.reply(ephemeral(`Suggestion #${id} was posted by <@${s.user_id}>${s.anonymous ? ' (anonymously)' : ''}.`));
+  journal.refresh('suggestion', id);
   await community.setSuggestionStatus(i, id, sub, i.options.getString('reason'));
   return i.reply(ephemeral(`✅ Suggestion #${id} is now ${community.STATUS[sub].label}. The author got a DM.`));
 }

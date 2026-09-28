@@ -5,6 +5,7 @@ const { getFeature, setFeature, getSettings } = require('./db');
 const { BRAND, ephemeral } = require('./util');
 const { formatDuration } = require('./monitor');
 const mod = require('./moderation');
+const journal = require('./journal');
 
 const AGE_DEFAULTS = { enabled: false, minAgeMs: 7 * 86_400_000, roleId: null, channelId: null };
 const P = PermissionFlagsBits;
@@ -19,21 +20,29 @@ const shouldQuarantine = (member) => {
 // Creates the Quarantine role and channel if missing, and hides every other channel from the role.
 async function setupQuarantine(guild) {
   const cfg = ageGate(guild.id);
-  const role = guild.roles.cache.get(cfg.roleId)
-    ?? await guild.roles.create({ name: 'Quarantine', permissions: [], reason: 'Age gate' });
-  const channel = guild.channels.cache.get(cfg.channelId) ?? await guild.channels.create({
-    name: 'quarantine',
-    type: ChannelType.GuildText,
-    topic: 'New accounts wait here until staff approve them.',
-    reason: 'Age gate',
-    permissionOverwrites: [
-      { id: guild.roles.everyone.id, deny: [P.ViewChannel] },
-      { id: role.id, allow: [P.ViewChannel, P.SendMessages, P.ReadMessageHistory] },
-      { id: guild.members.me.id, allow: [P.ViewChannel, P.SendMessages, P.EmbedLinks] },
-    ],
-  });
+  let role = guild.roles.cache.get(cfg.roleId);
+  if (!role) {
+    role = await guild.roles.create({ name: 'Quarantine', permissions: [], reason: 'Age gate' });
+    journal.created('role', role);
+  }
+  let channel = guild.channels.cache.get(cfg.channelId);
+  if (!channel) {
+    channel = await guild.channels.create({
+      name: 'quarantine',
+      type: ChannelType.GuildText,
+      topic: 'New accounts wait here until staff approve them.',
+      reason: 'Age gate',
+      permissionOverwrites: [
+        { id: guild.roles.everyone.id, deny: [P.ViewChannel] },
+        { id: role.id, allow: [P.ViewChannel, P.SendMessages, P.ReadMessageHistory] },
+        { id: guild.members.me.id, allow: [P.ViewChannel, P.SendMessages, P.EmbedLinks] },
+      ],
+    });
+    journal.created('channel', channel);
+  }
   for (const c of guild.channels.cache.values()) {
     if (c.id === channel.id || c.isThread() || !c.manageable) continue;
+    journal.overwrite(c, role.id);
     await c.permissionOverwrites.edit(role, { ViewChannel: false }, { reason: 'Age gate' }).catch(() => {});
   }
   setFeature(guild.id, 'agegate', { ...cfg, roleId: role.id, channelId: channel.id });
@@ -43,7 +52,9 @@ async function setupQuarantine(guild) {
 async function giveAutoRole(member) {
   const { autorole_id } = getSettings(member.guild.id);
   if (!autorole_id || member.user.bot || member.pending) return;
-  await member.roles.add(autorole_id, 'Auto-role').catch((e) => console.error(`Auto-role in ${member.guild.id}: ${e.message}`));
+  await member.roles.add(autorole_id, 'Auto-role')
+    .then(() => journal.memberRole(member, autorole_id, true))
+    .catch((e) => console.error(`Auto-role in ${member.guild.id}: ${e.message}`));
 }
 
 async function quarantine(member) {
@@ -76,6 +87,7 @@ async function approve(member, moderator) {
   const { roleId } = ageGate(member.guild.id);
   if (!roleId || !member.roles.cache.has(roleId)) return false;
   await member.roles.remove(roleId, mod.auditReason(moderator, 'Age gate: approved'));
+  journal.memberRole(member, roleId, false);
   await giveAutoRole(member);
   await mod.notify(member.user, `✅ Staff approved your account in **${member.guild.name}**. You now have full access.`);
   await mod.modLog(member.guild, { title: '🛂 Approved', color: Colors.Green, target: member.user, moderator });
@@ -99,6 +111,7 @@ async function postVerifyPanel(channel, role, text) {
     )],
     allowedMentions: { parse: [] },
   });
+  journal.created('message', message);
   setFeature(channel.guildId, 'verification', { roleId: role.id, channelId: channel.id, messageId: message.id });
   return message;
 }
@@ -144,6 +157,7 @@ const handlers = {
   'gate-kick': gateButton(P.KickMembers, async (i, member) => {
     const error = mod.checkTarget(i.member, member, 'kick');
     if (error) { await i.followUp(ephemeral(error)); return null; }
+    journal.cannotUndo('Kick (they have to rejoin themselves)');
     await member.kick(mod.auditReason(i.member, 'Age gate: rejected'));
     await mod.recordCase(i.guild, { action: 'kick', user: member.user, moderator: i.user, reason: 'Age gate: rejected' });
     return 'Kicked';
@@ -153,6 +167,7 @@ const handlers = {
     const error = mod.checkTarget(i.member, member, 'ban');
     if (error) { await i.followUp(ephemeral(error)); return null; }
     await i.guild.bans.create(member.id, { reason: mod.auditReason(i.member, 'Age gate: rejected') });
+    journal.banned(member.id);
     await mod.recordCase(i.guild, { action: 'ban', user: member.user, moderator: i.user, reason: 'Age gate: rejected' });
     return 'Banned';
   }),

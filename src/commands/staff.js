@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, InteractionContextType, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const { BRAND, ephemeral, confirm } = require('../util');
 const mod = require('../moderation');
+const journal = require('../journal');
 
 const command = (name, description, permission) => new SlashCommandBuilder()
   .setName(name)
@@ -27,6 +28,7 @@ async function roleCommand(i) {
 
   const reason = i.options.getString('reason') ?? 'No reason given';
   await (give ? member.roles.add(role, mod.auditReason(i.member, reason)) : member.roles.remove(role, mod.auditReason(i.member, reason)));
+  journal.memberRole(member, role.id, give);
   await mod.modLog(i.guild, {
     title: give ? '➕ Role given' : '➖ Role taken', color: BRAND, target: member.user, moderator: i.user, reason, extra: `**Role:** ${role}`,
   });
@@ -40,6 +42,7 @@ async function decancerCommand(i) {
     if (error) return i.reply(ephemeral(error));
     const clean = mod.decancer(member.displayName);
     if (clean === member.displayName) return i.reply(ephemeral(`${member}'s name is already readable.`));
+    journal.nickname(member);
     await member.setNickname(clean, mod.auditReason(i.member, 'Decancer'));
     return i.reply(ephemeral(`✅ Renamed ${member} to **${clean}**.`));
   }
@@ -56,6 +59,7 @@ async function decancerCommand(i) {
 
   let done = 0;
   for (const m of targets.values()) {
+    journal.nickname(m);
     if (await m.setNickname(mod.decancer(m.displayName), mod.auditReason(i.member, 'Decancer')).then(() => true, () => false)) done++;
   }
   await mod.modLog(i.guild, { title: '🧼 Names cleaned', color: BRAND, moderator: i.user, extra: `**Renamed:** ${done} members` });
@@ -85,6 +89,7 @@ module.exports = [
       const error = mod.checkTarget(i.member, member, 'nick');
       if (error) return i.reply(ephemeral(error));
       const nickname = i.options.getString('nickname');
+      journal.nickname(member);
       await member.setNickname(nickname, mod.auditReason(i.member, 'Nickname change'));
       await i.reply(ephemeral(nickname ? `✅ ${member} is now **${nickname}**.` : `✅ Reset ${member}'s nickname.`));
     },

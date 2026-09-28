@@ -5,6 +5,7 @@ const {
 const { db, getSettings } = require('./db');
 const { BRAND, ephemeral } = require('./util');
 const mod = require('./moderation');
+const journal = require('./journal');
 
 const unix = (ms) => Math.floor(ms / 1000);
 
@@ -36,7 +37,7 @@ async function decide(i, appealId, accept) {
 
   const user = await i.client.users.fetch(appeal.user_id);
   if (accept) {
-    await i.guild.bans.remove(user.id, mod.auditReason(i.member, 'Ban appeal accepted')).catch(() => {});
+    if (await i.guild.bans.remove(user.id, mod.auditReason(i.member, 'Ban appeal accepted')).then(() => true, () => false)) journal.unbanned(user.id);
     mod.closeBans(i.guildId, user.id);
     await mod.recordCase(i.guild, { action: 'unban', user, moderator: i.user, reason: `Appeal accepted (ban case #${appeal.case_number})` });
     const invite = await makeInvite(i.guild);

@@ -2,6 +2,7 @@ const { SlashCommandBuilder, Colors, InteractionContextType, MessageFlags, Permi
 const { formatDuration } = require('../monitor');
 const { BRAND, ephemeral, parseDuration, confirm } = require('../util');
 const mod = require('../moderation');
+const journal = require('../journal');
 
 const MAX_IDS = 200;
 const idsOption = (o) => o.setName('users').setDescription('User IDs or mentions, separated by spaces or commas').setRequired(true);
@@ -49,6 +50,7 @@ async function bulkRole(i, give) {
   for (const member of members.values()) {
     try {
       await (give ? member.roles.add(role, mod.auditReason(i.member, 'Bulk role')) : member.roles.remove(role, mod.auditReason(i.member, 'Bulk role')));
+      journal.memberRole(member, role.id, give);
       done++;
     } catch (e) {
       failed.push(`${member.user.tag}: ${e.message}`);
@@ -89,7 +91,9 @@ async function bulk(i) {
     try {
       const { bannedUsers, failedUsers } = await i.guild.bans.bulkCreate(ids, { reason: audit, deleteMessageSeconds: 3600 });
       result = { done: bannedUsers.length, failed: failedUsers.map((id) => `\`${id}\`: already banned or protected`) };
+      if (bannedUsers.length) journal.cannotUndo('Deleted their messages from the last hour');
       for (const id of bannedUsers) {
+        journal.banned(id);
         mod.closeBans(i.guildId, id);
         await record('ban', i.client.users.cache.get(id) ?? { id, tag: id });
       }
@@ -97,9 +101,9 @@ async function bulk(i) {
       return i.editReply(`❌ Bulk ban failed: ${e.message}`);
     }
   } else if (sub === 'kick') {
-    result = await eachMember(i, ids, 'kick', async (m) => { await m.kick(audit); await record('kick', m.user); });
+    result = await eachMember(i, ids, 'kick', async (m) => { journal.cannotUndo('Kicks (members have to rejoin themselves)'); await m.kick(audit); await record('kick', m.user); });
   } else {
-    result = await eachMember(i, ids, 'timeout', async (m) => { await m.timeout(ms, audit); await record('timeout', m.user, { durationMs: ms }); });
+    result = await eachMember(i, ids, 'timeout', async (m) => { journal.timeout(m); await m.timeout(ms, audit); await record('timeout', m.user, { durationMs: ms }); });
   }
 
   const verb = { ban: 'Banned', kick: 'Kicked', timeout: `Timed out for ${formatDuration(ms ?? 0)}` }[sub];

@@ -3,6 +3,7 @@ const { db, getFeature, setFeature } = require('../db');
 const { BRAND, ephemeral, parseDuration } = require('../util');
 const giveaways = require('../giveaways');
 const tempvoice = require('../tempvoice');
+const journal = require('../journal');
 
 const P = PermissionFlagsBits;
 const unix = (ms) => Math.floor(ms / 1000);
@@ -23,6 +24,7 @@ async function giveaway(i) {
     `).run(i.guildId, channel.id, i.user.id, i.options.getString('prize', true), i.options.getInteger('winners') ?? 1,
       Date.now() + ms, i.options.getRole('required_role')?.id ?? null, minAge);
     const message = await channel.send(giveaways.giveawayMessage(giveaways.getGiveaway(id)));
+    journal.created('message', message);
     db.prepare('UPDATE giveaways SET message_id = ? WHERE id = ?').run(message.id, id);
     return i.reply(ephemeral(`🎉 Giveaway #${id} started in ${channel}: ${message.url}`));
   }
@@ -39,6 +41,8 @@ async function giveaway(i) {
   const g = giveaways.getGiveaway(i.options.getInteger('id', true));
   if (!g || g.guild_id !== i.guildId) return i.reply(ephemeral('There is no giveaway with that number here.'));
   await i.deferReply({ flags: MessageFlags.Ephemeral });
+  journal.refresh('giveaway', g.id);
+  journal.cannotUndo('The winner announcement');
   if (sub === 'end') {
     if (g.ended) return i.editReply('That giveaway already ended. Use `/giveaway reroll` for new winners.');
     const winners = await giveaways.endGiveaway(i.client, g);
@@ -150,6 +154,7 @@ module.exports = [
       const hub = await i.guild.channels.create({
         name: '➕ Create a channel', type: ChannelType.GuildVoice, parent: i.options.getChannel('category')?.id ?? null, reason: 'Temp voice hub',
       });
+      journal.created('channel', hub);
       setFeature(i.guildId, 'tempvoice', { hubId: hub.id });
       return i.reply(ephemeral(`✅ Joining ${hub} now creates a personal voice channel.${old ? ` The old hub ${old} no longer works; you can delete it.` : ''} Owners manage it with \`/voice\`.`));
     },

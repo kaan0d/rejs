@@ -2,6 +2,7 @@ const { EmbedBuilder, Colors, escapeMarkdown } = require('discord.js');
 const { db, getSettings } = require('./db');
 const { formatDuration } = require('./monitor');
 const { BRAND } = require('./util');
+const journal = require('./journal');
 
 const MAX_TIMEOUT_MS = 28 * 86_400_000;
 const unix = (ms) => Math.floor(ms / 1000);
@@ -111,12 +112,14 @@ async function escalate(member, count) {
   const reason = `Automatic: reached ${count} warnings`;
   if (s.warn_kick_at && count >= s.warn_kick_at && member.kickable) {
     await notify(member.user, `👢 You were kicked from **${member.guild.name}** after ${count} warnings.`);
+    journal.cannotUndo('Automatic kick after too many warnings');
     await member.kick(auditReason(bot, reason));
     await recordCase(member.guild, { action: 'kick', user: member.user, moderator: bot.user, reason });
     return `Kicked automatically (${count} warnings).`;
   }
   if (s.warn_timeout_at && count >= s.warn_timeout_at && member.moderatable) {
     const ms = s.warn_timeout_ms ?? 3_600_000;
+    journal.timeout(member);
     await member.timeout(ms, auditReason(bot, reason));
     await recordCase(member.guild, { action: 'timeout', user: member.user, moderator: bot.user, reason, durationMs: ms });
     return `Timed out automatically for ${formatDuration(ms)} (${count} warnings).`;

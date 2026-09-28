@@ -337,3 +337,84 @@ test('command usage is counted', () => {
   ops.countUsage('ban');
   assert.deepEqual(ops.topCommands(2).map((c) => [c.name, c.count]), [['warn', 2], ['ban', 1]]);
 });
+
+const journal = require('../src/journal');
+const { getSettings } = require('../src/db');
+
+const staff = (guildId, label) => ({ guildId, userId: 'mod', label, permissions: '32' });
+
+test('undo restores settings, features and records changed by a command', async () => {
+  setSetting('un-g', 'modlog_channel_id', 'before');
+  await journal.run(staff('un-g', '/config modlog'), async () => {
+    setSetting('un-g', 'modlog_channel_id', 'after');
+    setFeature('un-g', 'reports', { channelId: 'r' });
+    db.prepare("INSERT INTO tags (guild_id, name, content) VALUES ('un-g', 'rules', 'be nice')").run();
+    db.prepare("UPDATE tags SET content = 'be kind' WHERE guild_id = 'un-g'").run();
+  });
+  const [entry] = journal.undoable('un-g');
+  assert.equal(entry.label, '/config modlog');
+  const result = await journal.undo({ id: 'un-g' }, entry.id, 'admin');
+  assert.equal(result.rows, 4);
+  assert.equal(getSettings('un-g').modlog_channel_id, 'before');
+  assert.deepEqual(getFeature('un-g', 'reports', {}), {});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM tags WHERE guild_id = 'un-g'").get().n, 0);
+  assert.equal(journal.undoable('un-g').length, 0);
+  assert.equal(await journal.undo({ id: 'un-g' }, entry.id, 'admin'), null);
+});
+
+test('undo brings back deleted records', async () => {
+  const { lastInsertRowid } = db.prepare("INSERT INTO responders (guild_id, trigger, response) VALUES ('del-g', 'hi', 'hello')").run();
+  await journal.run(staff('del-g', '/autoresponder remove'), async () => {
+    db.prepare('DELETE FROM responders WHERE id = ?').run(lastInsertRowid);
+  });
+  await journal.undo({ id: 'del-g' }, journal.undoable('del-g')[0].id, 'admin');
+  assert.equal(db.prepare('SELECT response FROM responders WHERE id = ?').get(lastInsertRowid).response, 'hello');
+});
+
+test('commands that run at the same time keep separate undo entries', async () => {
+  const pause = () => new Promise((r) => setTimeout(r, 5));
+  await Promise.all([
+    journal.run(staff('par-g', 'A'), async () => { await pause(); setSetting('par-g', 'autorole_id', 'a'); await pause(); }),
+    journal.run(staff('par-g', 'B'), async () => { setSetting('par-g', 'modlog_channel_id', 'b'); await pause(); await pause(); }),
+  ]);
+  const byLabel = Object.fromEntries(journal.undoable('par-g').map((e) => [e.label, e.id]));
+  await journal.undo({ id: 'par-g' }, byLabel.A, 'admin');
+  assert.equal(getSettings('par-g').autorole_id, null);
+  assert.equal(getSettings('par-g').modlog_channel_id, 'b');
+});
+
+test('undo reverses Discord changes newest first and reports what failed', async () => {
+  const calls = [];
+  const guild = {
+    id: 'dc-g',
+    channels: { cache: new Map([['new-ch', { delete: async () => calls.push('delete channel') }]]) },
+    roles: { cache: new Map([['new-role', { delete: async () => calls.push('delete role') }]]) },
+    members: { fetch: async () => ({ roles: { remove: async (r) => calls.push(`take ${r}`) }, timeout: async (ms) => calls.push(`timeout ${ms}`) }) },
+    bans: { remove: async (u) => calls.push(`unban ${u}`), create: async () => { throw new Error('Missing Permissions'); } },
+  };
+  await journal.run(staff('dc-g', '/setup'), async () => {
+    journal.created('role', { id: 'new-role' });
+    journal.created('channel', { id: 'new-ch' });
+    journal.memberRole({ id: 'u1' }, 'vip', true);
+    journal.timeout({ id: 'u1', communicationDisabledUntilTimestamp: null });
+    journal.banned('u2');
+    journal.unbanned('u3');
+    journal.cannotUndo('Kick (they have to rejoin themselves)');
+  });
+  const result = await journal.undo(guild, journal.undoable('dc-g')[0].id, 'admin');
+  assert.deepEqual(calls, ['unban u2', 'timeout null', 'take vip', 'delete channel', 'delete role']);
+  assert.equal(result.failed.length, 1);
+  assert.match(result.failed[0], /Missing Permissions/);
+  assert.deepEqual(result.notes, ['Kick (they have to rejoin themselves)']);
+});
+
+test('read-only commands leave no undo entry, and entries expire after 7 days', async () => {
+  await journal.run(staff('ro-g', '/warnings list'), async () => {});
+  assert.equal(journal.undoable('ro-g').length, 0);
+  await journal.run(staff('ro-g', '/tags add'), async () => { setSetting('ro-g', 'autorole_id', 'x'); });
+  const now = Date.now();
+  assert.equal(journal.undoable('ro-g', now + 6 * 86_400_000).length, 1);
+  journal.purgeOld(now + 8 * 86_400_000);
+  assert.equal(journal.undoable('ro-g', now).length, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM undo_rows WHERE tx NOT IN (SELECT id FROM undo_log)').get().n, 0);
+});
