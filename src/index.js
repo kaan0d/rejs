@@ -97,21 +97,31 @@ async function main() {
     ],
     // Lets delete and leave events arrive for messages and members the bot hasn't cached.
     partials: [Partials.Message, Partials.GuildMember],
+    // Channel renames are limited to 2 per 10 minutes. Fail fast instead of freezing the caller for minutes.
+    rest: { rejectOnRateLimit: (limit) => limit.method.toUpperCase() === 'PATCH' && limit.route.startsWith('/channels') },
   });
   client.commands = commands;
   client.hasMessageContent = messageContent;
+  // Replaced once the owner is known; until then nobody counts as the owner.
+  client.isOwner = () => false;
+  client.notifyOwner = async () => {};
 
   client.once(Events.ClientReady, async (c) => {
-    // The owner is whoever owns the application in the Developer Portal (or its team members).
-    const { owner } = await c.application.fetch();
-    c.isOwner = (id) => (owner?.members ? owner.members.has(id) : owner?.id === id);
-    c.notifyOwner = (text) => (owner?.members ? owner.owner?.user : owner)?.send(text).catch(() => {});
+    try {
+      // The owner is whoever owns the application in the Developer Portal (or its team members).
+      const { owner } = await c.application.fetch();
+      c.isOwner = (id) => (owner?.members ? owner.members.has(id) : owner?.id === id);
+      c.notifyOwner = (text) => (owner?.members ? owner.owner?.user : owner)?.send(text).catch(() => {});
 
-    // Owner commands go only to the dev server when one is set, so other servers never see them.
-    const all = [...commands.values()];
-    const devGuild = process.env.DEV_GUILD_ID;
-    await c.application.commands.set(all.filter((cmd) => !devGuild || !cmd.owner).map((cmd) => cmd.data));
-    if (devGuild) await c.application.commands.set(all.filter((cmd) => cmd.owner).map((cmd) => cmd.data), devGuild);
+      // Owner commands go only to the dev server when one is set, so other servers never see them.
+      const all = [...commands.values()];
+      const devGuild = process.env.DEV_GUILD_ID;
+      await c.application.commands.set(all.filter((cmd) => !devGuild || !cmd.owner).map((cmd) => cmd.data));
+      if (devGuild) await c.application.commands.set(all.filter((cmd) => cmd.owner).map((cmd) => cmd.data), devGuild);
+    } catch (error) {
+      // A bad DEV_GUILD_ID or a Discord hiccup must not stop the monitor, scheduler and updater below.
+      await ops.reportError(c, 'Registering commands failed', error);
+    }
     console.log(`${c.user.tag} is online in ${c.guilds.cache.size} servers with ${commands.size} commands.`);
     monitor.start(c);
     scheduler.start(c);

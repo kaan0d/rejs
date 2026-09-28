@@ -21,9 +21,13 @@ async function createFor(member, hub) {
     reason: `Temporary channel for ${member.user.tag}`,
   });
   db.prepare('INSERT INTO temp_voice (channel_id, guild_id, owner_id) VALUES (?, ?, ?)').run(channel.id, member.guild.id, member.id);
-  await member.voice.setChannel(channel).catch(() => {});
-  // They left the hub before we could move them.
-  if (!channel.members.size) await removeIfEmpty(channel);
+  // The member list updates a moment after the move, so trust the move result instead of checking it.
+  const moved = await member.voice.setChannel(channel).then(() => true, () => false);
+  if (!moved) {
+    // They left the hub before we could move them.
+    db.prepare('DELETE FROM temp_voice WHERE channel_id = ?').run(channel.id);
+    await channel.delete('Owner left before the move').catch(() => {});
+  }
 }
 
 async function removeIfEmpty(channel) {

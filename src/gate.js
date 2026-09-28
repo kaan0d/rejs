@@ -107,15 +107,17 @@ async function postVerifyPanel(channel, role, text) {
 function gateButton(permission, action) {
   return async (i, userId) => {
     if (!i.memberPermissions?.has(permission)) return i.reply(ephemeral("You don't have permission to do that."));
+    // Kicking, banning and DMing can take longer than Discord's 3-second reply window.
+    await i.deferUpdate();
     const member = await i.guild.members.fetch(userId).catch(() => null);
     if (!member) {
-      await i.update({ components: [] });
+      await i.editReply({ components: [] });
       return i.followUp(ephemeral('They already left the server.'));
     }
     const result = await action(i, member);
     if (!result) return;
     const embed = EmbedBuilder.from(i.message.embeds[0]).setFooter({ text: `${result} by ${i.user.tag}` });
-    await i.update({ embeds: [embed], components: [] });
+    await i.editReply({ embeds: [embed], components: [] });
   };
 }
 
@@ -133,7 +135,7 @@ const handlers = {
 
   'gate-approve': gateButton(P.ModerateMembers, async (i, member) => {
     if (!(await approve(member, i.member))) {
-      await i.reply(ephemeral(`${member} isn't in quarantine anymore.`));
+      await i.followUp(ephemeral(`${member} isn't in quarantine anymore.`));
       return null;
     }
     return 'Approved';
@@ -141,7 +143,7 @@ const handlers = {
 
   'gate-kick': gateButton(P.KickMembers, async (i, member) => {
     const error = mod.checkTarget(i.member, member, 'kick');
-    if (error) { await i.reply(ephemeral(error)); return null; }
+    if (error) { await i.followUp(ephemeral(error)); return null; }
     await member.kick(mod.auditReason(i.member, 'Age gate: rejected'));
     await mod.recordCase(i.guild, { action: 'kick', user: member.user, moderator: i.user, reason: 'Age gate: rejected' });
     return 'Kicked';
@@ -149,7 +151,7 @@ const handlers = {
 
   'gate-ban': gateButton(P.BanMembers, async (i, member) => {
     const error = mod.checkTarget(i.member, member, 'ban');
-    if (error) { await i.reply(ephemeral(error)); return null; }
+    if (error) { await i.followUp(ephemeral(error)); return null; }
     await i.guild.bans.create(member.id, { reason: mod.auditReason(i.member, 'Age gate: rejected') });
     await mod.recordCase(i.guild, { action: 'ban', user: member.user, moderator: i.user, reason: 'Age gate: rejected' });
     return 'Banned';
