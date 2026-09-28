@@ -8,24 +8,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS guild_settings (
     guild_id TEXT PRIMARY KEY,
     server_url TEXT,
-    monitor_channel_id TEXT,
-    levelup_channel_id TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS levels (
-    guild_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    level INTEGER NOT NULL,
-    xp INTEGER NOT NULL,
-    thanks INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (guild_id, user_id)
-  );
-
-  CREATE TABLE IF NOT EXISTS level_roles (
-    guild_id TEXT NOT NULL,
-    level INTEGER NOT NULL,
-    role_id TEXT NOT NULL,
-    PRIMARY KEY (guild_id, level)
+    monitor_channel_id TEXT
   );
 
   CREATE TABLE IF NOT EXISTS sessions (
