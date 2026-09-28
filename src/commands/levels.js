@@ -1,13 +1,13 @@
 const {
   SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors,
-  InteractionContextType, MessageFlags,
+  InteractionContextType,
 } = require('discord.js');
 const { db } = require('../db');
 const levels = require('../levels');
 
 const PAGE_SIZE = 10;
 const MEDALS = ['🥇', '🥈', '🥉'];
-const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral });
+const { ephemeral } = require('../util');
 
 const xpLine = ({ level, xp }) => level === levels.MAX_LEVEL ? 'max level' : `${xp}/${levels.requiredXp(level)} XP`;
 

@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder, Colors, InteractionContextType, MessageFlags, escapeMarkdown } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, Colors, InteractionContextType, escapeMarkdown } = require('discord.js');
 const { db, getSettings } = require('../db');
 const monitor = require('../monitor');
 
-const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral });
+const { ephemeral } = require('../util');
 const NOT_SET_UP = 'No game server is set up here yet. An admin can run `/config monitor`.';
 const unix = (ms) => Math.floor(ms / 1000);
 // FiveM hostnames carry color codes like ^1.

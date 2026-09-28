@@ -1,12 +1,10 @@
 const {
-  SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Colors,
-  InteractionContextType, MessageFlags, PermissionFlagsBits,
+  SlashCommandBuilder, EmbedBuilder, ChannelType, Colors, InteractionContextType, MessageFlags, PermissionFlagsBits,
 } = require('discord.js');
 const { db, getSettings, setSetting } = require('../db');
 const levels = require('../levels');
 const monitor = require('../monitor');
-
-const ephemeral = (content) => ({ content, flags: MessageFlags.Ephemeral });
+const { ephemeral, parseDuration, confirm } = require('../util');
 const TEXT_CHANNELS = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
 const POST_PERMISSIONS = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
 
@@ -49,7 +47,45 @@ async function configure(i) {
       : '✅ Level-ups will be announced where the thanks happened.'));
   }
 
+  if (sub === 'modlog') {
+    const channel = i.options.getChannel('channel');
+    if (channel && !canPost(channel)) return i.reply(ephemeral(`I can't post in ${channel}. I need View Channel, Send Messages and Embed Links there.`));
+    setSetting(i.guildId, 'modlog_channel_id', channel?.id ?? null);
+    return i.reply(ephemeral(channel
+      ? `✅ Moderation actions will be logged in ${channel}. Run \`/automod\` again to send AutoMod alerts there too.`
+      : '✅ Moderation log is off.'));
+  }
+
+  if (sub === 'autorole') {
+    const role = i.options.getRole('role');
+    if (role && (role.managed || role.id === i.guildId)) return i.reply(ephemeral("That role can't be handed out."));
+    if (role && role.position >= i.guild.members.me.roles.highest.position) {
+      return i.reply(ephemeral(`I can't give ${role}. Move my role above it in Server Settings → Roles.`));
+    }
+    setSetting(i.guildId, 'autorole_id', role?.id ?? null);
+    return i.reply(ephemeral(role ? `✅ New members will get ${role}.` : '✅ Auto-role is off.'));
+  }
+
+  if (sub === 'warn-escalation') {
+    const timeoutAt = i.options.getInteger('timeout_at', true);
+    const kickAt = i.options.getInteger('kick_at', true);
+    const duration = parseDuration(i.options.getString('timeout_duration') ?? '1h');
+    if (!duration || duration > 28 * 86_400_000) return i.reply(ephemeral('Use a timeout duration like `30m`, `1h` or `1d`, up to 28 days.'));
+    setSetting(i.guildId, 'warn_timeout_at', timeoutAt || null);
+    setSetting(i.guildId, 'warn_timeout_ms', duration);
+    setSetting(i.guildId, 'warn_kick_at', kickAt || null);
+    const rules = [
+      timeoutAt && `timed out for ${monitor.formatDuration(duration)} at ${timeoutAt} warnings`,
+      kickAt && `kicked at ${kickAt} warnings`,
+    ].filter(Boolean);
+    return i.reply(ephemeral(rules.length ? `✅ Members will be automatically ${rules.join(', and ')}.` : '✅ Warning escalation is off.'));
+  }
+
   const settings = getSettings(i.guildId);
+  const escalation = [
+    settings.warn_timeout_at && `Timeout (${monitor.formatDuration(settings.warn_timeout_ms)}) at ${settings.warn_timeout_at} warnings`,
+    settings.warn_kick_at && `Kick at ${settings.warn_kick_at} warnings`,
+  ].filter(Boolean);
   const rewards = db.prepare('SELECT level, role_id FROM level_roles WHERE guild_id = ? ORDER BY level').all(i.guildId);
   return i.reply({
     flags: MessageFlags.Ephemeral,
@@ -60,6 +96,9 @@ async function configure(i) {
         { name: 'Game server', value: settings.server_url ? `\`${settings.server_url}\` → <#${settings.monitor_channel_id}>` : 'Off' },
         { name: 'Level-up announcements', value: settings.levelup_channel_id ? `<#${settings.levelup_channel_id}>` : 'Where the thanks happened' },
         { name: 'Level rewards', value: rewards.map((r) => `Level ${r.level} → <@&${r.role_id}>`).join('\n') || 'None' },
+        { name: 'Mod log', value: settings.modlog_channel_id ? `<#${settings.modlog_channel_id}>` : 'Off', inline: true },
+        { name: 'Auto-role', value: settings.autorole_id ? `<@&${settings.autorole_id}>` : 'Off', inline: true },
+        { name: 'Warning escalation', value: escalation.join('\n') || 'Off' },
       )],
   });
 }
@@ -91,22 +130,10 @@ async function manageXp(i) {
     if (!i.memberPermissions.has(PermissionFlagsBits.Administrator)) {
       return i.reply(ephemeral('Only administrators can reset everyone.'));
     }
-    const response = await i.reply({
-      content: "⚠️ This wipes every member's level and XP in this server. Are you sure?",
-      components: [new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('confirm').setLabel('Reset everyone').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
-      )],
-      flags: MessageFlags.Ephemeral,
-    });
-    try {
-      const button = await response.awaitMessageComponent({ time: 30_000 });
-      if (button.customId !== 'confirm') return button.update({ content: 'Cancelled. Nothing changed.', components: [] });
-      const { changes } = db.prepare('DELETE FROM levels WHERE guild_id = ?').run(i.guildId);
-      return button.update({ content: `✅ Reset ${changes} members.`, components: [] });
-    } catch {
-      return i.editReply({ content: 'Timed out. Nothing changed.', components: [] });
-    }
+    const button = await confirm(i, "⚠️ This wipes every member's level and XP in this server. Are you sure?", 'Reset everyone');
+    if (!button) return;
+    const { changes } = db.prepare('DELETE FROM levels WHERE guild_id = ?').run(i.guildId);
+    return button.update({ content: `✅ Reset ${changes} members.`, components: [] });
   }
 
   const user = i.options.getUser('user', true);
@@ -137,6 +164,14 @@ module.exports = [
       .addSubcommand((s) => s.setName('monitor-off').setDescription('Stop watching the game server'))
       .addSubcommand((s) => s.setName('levelup-channel').setDescription('Where to announce level-ups')
         .addChannelOption((o) => o.setName('channel').setDescription('Leave empty to announce where the thanks happened').addChannelTypes(...TEXT_CHANNELS)))
+      .addSubcommand((s) => s.setName('modlog').setDescription('Where to log moderation actions and AutoMod alerts')
+        .addChannelOption((o) => o.setName('channel').setDescription('Leave empty to turn the log off').addChannelTypes(...TEXT_CHANNELS)))
+      .addSubcommand((s) => s.setName('autorole').setDescription('Give new members a role when they join')
+        .addRoleOption((o) => o.setName('role').setDescription('Leave empty to turn auto-role off')))
+      .addSubcommand((s) => s.setName('warn-escalation').setDescription('Automatically punish members who collect warnings')
+        .addIntegerOption((o) => o.setName('timeout_at').setDescription('Warnings before a timeout (0 = never)').setMinValue(0).setMaxValue(50).setRequired(true))
+        .addIntegerOption((o) => o.setName('kick_at').setDescription('Warnings before a kick (0 = never)').setMinValue(0).setMaxValue(50).setRequired(true))
+        .addStringOption((o) => o.setName('timeout_duration').setDescription('How long the timeout lasts (default 1h)')))
       .addSubcommand((s) => s.setName('show').setDescription('Show current settings')),
     execute: configure,
   },

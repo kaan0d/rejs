@@ -1,9 +1,11 @@
 const { Client, Events, GatewayIntentBits, MessageFlags } = require('discord.js');
+const { getSettings } = require('./db');
 const levels = require('./levels');
 const monitor = require('./monitor');
+const scheduler = require('./scheduler');
 
 const commands = new Map(
-  ['general', 'levels', 'server', 'admin']
+  ['general', 'levels', 'server', 'moderation', 'bulk', 'automation', 'admin']
     .flatMap((file) => require(`./commands/${file}`))
     .map((command) => [command.data.name, command]),
 );
@@ -12,8 +14,10 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    // Privileged: turn on "Message Content Intent" in the Developer Portal. Needed to spot "thanks".
+    // The next two are privileged: turn them on under Bot in the Developer Portal.
+    // Message Content spots "thanks"; Server Members powers auto-role and /bulk role.
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
   ],
 });
 client.commands = commands;
@@ -22,6 +26,7 @@ client.once(Events.ClientReady, async (c) => {
   await c.application.commands.set([...commands.values()].map((command) => command.data));
   console.log(`${c.user.tag} is online in ${c.guilds.cache.size} servers with ${commands.size} commands.`);
   monitor.start(c);
+  scheduler.start(c);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -36,6 +41,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.on(Events.MessageCreate, (message) => levels.onMessage(message).catch(console.error));
+
+// Members still on the rules screen get the role once they accept.
+async function giveAutoRole(member) {
+  const { autorole_id } = getSettings(member.guild.id);
+  if (!autorole_id || member.user.bot || member.pending) return;
+  await member.roles.add(autorole_id, 'Auto-role').catch((e) => console.error(`Auto-role in ${member.guild.id}: ${e.message}`));
+}
+client.on(Events.GuildMemberAdd, giveAutoRole);
+client.on(Events.GuildMemberUpdate, (before, after) => before.pending && !after.pending && giveAutoRole(after));
 
 // A failed Discord call in a button handler should log, not take the bot down.
 process.on('unhandledRejection', (error) => console.error('Unhandled rejection:', error));

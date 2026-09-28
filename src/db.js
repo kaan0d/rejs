@@ -38,7 +38,37 @@ db.exec(`
     left_at INTEGER
   );
   CREATE INDEX IF NOT EXISTS sessions_by_guild ON sessions (guild_id, left_at);
+
+  CREATE TABLE IF NOT EXISTS warnings (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    moderator_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS warnings_by_user ON warnings (guild_id, user_id);
+
+  CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    message TEXT NOT NULL,
+    interval_ms INTEGER NOT NULL,
+    next_run_at INTEGER NOT NULL
+  );
 `);
+
+// Settings added after the first release. ADD COLUMN fails once the column exists, which is fine.
+for (const column of [
+  'modlog_channel_id TEXT',
+  'autorole_id TEXT',
+  'warn_timeout_at INTEGER',
+  'warn_timeout_ms INTEGER',
+  'warn_kick_at INTEGER',
+]) {
+  try { db.exec(`ALTER TABLE guild_settings ADD COLUMN ${column}`); } catch {}
+}
 
 const getSettings = (guildId) =>
   db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId) ?? {};
