@@ -2,7 +2,8 @@ const {
   SlashCommandBuilder, EmbedBuilder, ChannelType, InteractionContextType, MessageFlags, PermissionFlagsBits,
   AutoModerationActionType, AutoModerationRuleEventType, AutoModerationRuleTriggerType,
 } = require('discord.js');
-const { db, getSettings } = require('../db');
+const { db, getSettings, getFeature, setFeature } = require('../db');
+const automation = require('../automation');
 const { formatDuration } = require('../monitor');
 const { BRAND, ephemeral, parseDuration } = require('../util');
 
@@ -149,5 +150,98 @@ module.exports = [
       .addSubcommand((s) => s.setName('remove').setDescription('Delete a scheduled message')
         .addIntegerOption((o) => o.setName('id').setDescription('Number from /schedule list').setRequired(true))),
     execute: schedule,
+  },
+
+  {
+    data: new SlashCommandBuilder()
+      .setName('autoresponder')
+      .setDescription('Reply automatically when a message contains a phrase')
+      .setContexts(InteractionContextType.Guild)
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .addSubcommand((s) => s.setName('add').setDescription('Add a reply')
+        .addStringOption((o) => o.setName('trigger').setDescription('Phrase to look for, e.g. how do i join').setMaxLength(100).setRequired(true))
+        .addStringOption((o) => o.setName('response').setDescription('What to reply. Write \\n for a new line').setMaxLength(2000).setRequired(true))
+        .addChannelOption((o) => o.setName('channel').setDescription('Only in this channel (default: everywhere)').addChannelTypes(...TEXT_CHANNELS)))
+      .addSubcommand((s) => s.setName('remove').setDescription('Delete a reply')
+        .addIntegerOption((o) => o.setName('id').setDescription('Number from /autoresponder list').setRequired(true)))
+      .addSubcommand((s) => s.setName('list').setDescription('Show all replies')),
+    async execute(i) {
+      const sub = i.options.getSubcommand();
+      if (sub === 'add') {
+        if (db.prepare('SELECT COUNT(*) AS n FROM responders WHERE guild_id = ?').get(i.guildId).n >= 50) return i.reply(ephemeral('You can have up to 50 auto-replies.'));
+        const channel = i.options.getChannel('channel');
+        const { lastInsertRowid: id } = db.prepare('INSERT INTO responders (guild_id, trigger, response, channels) VALUES (?, ?, ?, ?)')
+          .run(i.guildId, i.options.getString('trigger', true).trim(), i.options.getString('response', true).replaceAll('\\n', '\n'), JSON.stringify(channel ? [channel.id] : []));
+        const note = i.client.hasMessageContent ? '' : '\n⚠️ The Message Content intent is off, so auto-replies stay inactive until the bot owner turns it on.';
+        return i.reply(ephemeral(`✅ Auto-reply #${id} added${channel ? ` for ${channel}` : ''}.${note}`));
+      }
+      if (sub === 'remove') {
+        const id = i.options.getInteger('id', true);
+        const { changes } = db.prepare('DELETE FROM responders WHERE guild_id = ? AND id = ?').run(i.guildId, id);
+        return i.reply(ephemeral(changes ? `✅ Deleted auto-reply #${id}.` : `There is no auto-reply #${id}.`));
+      }
+      const rows = db.prepare('SELECT * FROM responders WHERE guild_id = ? ORDER BY id').all(i.guildId);
+      const where = (r) => JSON.parse(r.channels).map((c) => `<#${c}>`).join(' ') || 'everywhere';
+      return i.reply({
+        flags: MessageFlags.Ephemeral,
+        embeds: [new EmbedBuilder().setColor(BRAND).setTitle('💬 Auto-replies')
+          .setDescription(rows.map((r) => `\`#${r.id}\` "${r.trigger}" · ${where(r)}\n> ${r.response.slice(0, 80).replaceAll('\n', ' ')}`).join('\n').slice(0, 4000) || 'None yet.')],
+      });
+    },
+  },
+
+  {
+    data: new SlashCommandBuilder()
+      .setName('sticky')
+      .setDescription('Keep a message at the bottom of a channel')
+      .setContexts(InteractionContextType.Guild)
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+      .addSubcommand((s) => s.setName('set').setDescription('Set or replace the sticky message')
+        .addStringOption((o) => o.setName('message').setDescription('Text. Write \\n for a new line').setMaxLength(1900).setRequired(true))
+        .addChannelOption((o) => o.setName('channel').setDescription('Default: this channel').addChannelTypes(...TEXT_CHANNELS)))
+      .addSubcommand((s) => s.setName('remove').setDescription('Remove the sticky message')
+        .addChannelOption((o) => o.setName('channel').setDescription('Default: this channel').addChannelTypes(...TEXT_CHANNELS))),
+    async execute(i) {
+      const channel = i.options.getChannel('channel') ?? i.channel;
+      const old = db.prepare('SELECT message_id FROM stickies WHERE channel_id = ?').get(channel.id);
+      if (old?.message_id) await channel.messages.delete(old.message_id).catch(() => {});
+      if (i.options.getSubcommand() === 'remove') {
+        db.prepare('DELETE FROM stickies WHERE channel_id = ?').run(channel.id);
+        return i.reply(ephemeral(old ? `✅ Removed the sticky message in ${channel}.` : `${channel} has no sticky message.`));
+      }
+      db.prepare(`INSERT INTO stickies (channel_id, guild_id, content) VALUES (?, ?, ?)
+        ON CONFLICT (channel_id) DO UPDATE SET content = excluded.content, message_id = NULL`)
+        .run(channel.id, i.guildId, i.options.getString('message', true).replaceAll('\\n', '\n'));
+      await automation.repostSticky(channel);
+      return i.reply(ephemeral(`📌 Sticky message set in ${channel}. It moves back to the bottom a few seconds after people post.`));
+    },
+  },
+
+  {
+    data: new SlashCommandBuilder()
+      .setName('autopublish')
+      .setDescription('Publish posts in announcement channels automatically')
+      .setContexts(InteractionContextType.Guild)
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .addSubcommand((s) => s.setName('add').setDescription('Auto-publish a channel')
+        .addChannelOption((o) => o.setName('channel').setDescription('Announcement channel').addChannelTypes(ChannelType.GuildAnnouncement).setRequired(true)))
+      .addSubcommand((s) => s.setName('remove').setDescription('Stop auto-publishing a channel')
+        .addChannelOption((o) => o.setName('channel').setDescription('Announcement channel').addChannelTypes(ChannelType.GuildAnnouncement).setRequired(true)))
+      .addSubcommand((s) => s.setName('list').setDescription('Show auto-published channels')),
+    async execute(i) {
+      const cfg = getFeature(i.guildId, 'autopublish', { channels: [] });
+      const channel = i.options.getChannel('channel');
+      const sub = i.options.getSubcommand();
+      if (sub === 'add') {
+        if (!channel.permissionsFor(i.guild.members.me)?.has([PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages])) {
+          return i.reply(ephemeral(`I need Send Messages and Manage Messages in ${channel} to publish other people's posts.`));
+        }
+        cfg.channels = [...new Set([...cfg.channels, channel.id])];
+      } else if (sub === 'remove') {
+        cfg.channels = cfg.channels.filter((id) => id !== channel.id);
+      }
+      setFeature(i.guildId, 'autopublish', cfg);
+      return i.reply(ephemeral(`📣 Auto-published: ${cfg.channels.map((id) => `<#${id}>`).join(', ') || 'none'}. Discord allows about 10 publishes per hour per channel.`));
+    },
   },
 ];

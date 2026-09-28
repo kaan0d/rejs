@@ -1,5 +1,27 @@
-const { SlashCommandBuilder, EmbedBuilder, ApplicationCommandOptionType, MessageFlags } = require('discord.js');
+const {
+  SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ApplicationCommandOptionType, MessageFlags,
+} = require('discord.js');
 const { BRAND } = require('../util');
+
+// Groups the commands this member can use by category, one line per command.
+function commandsFor(i) {
+  const groups = new Map();
+  for (const { data, owner, category } of i.client.commands.values()) {
+    if (owner && !i.client.isOwner(i.user.id)) continue;
+    const json = data.toJSON();
+    if (json.type !== 1) continue; // right-click menu commands are explained under General
+    const perms = json.default_member_permissions;
+    if (perms && !i.memberPermissions?.has(BigInt(perms))) continue;
+
+    const id = i.client.application.commands.cache.find((c) => c.name === json.name)?.id;
+    const subs = json.options?.filter((o) => o.type === ApplicationCommandOptionType.Subcommand).map((s) => s.name) ?? [];
+    const name = id ? `</${json.name}${subs.length ? ` ${subs[0]}` : ''}:${id}>` : `\`/${json.name}\``;
+    const more = subs.length > 1 ? ` (${subs.join(', ')})` : '';
+    if (!groups.has(category)) groups.set(category, []);
+    groups.get(category).push(`${name} · ${json.description}${more}`);
+  }
+  return groups;
+}
 
 module.exports = [
   {
@@ -12,31 +34,27 @@ module.exports = [
   {
     data: new SlashCommandBuilder().setName('help').setDescription('What this bot can do'),
     async execute(i) {
-      const everyone = [];
-      const staff = [];
-      for (const { data, owner } of i.client.commands.values()) {
-        if (owner && !i.client.isOwner(i.user.id)) continue;
-        const json = data.toJSON();
-        if (json.type !== 1) continue; // right-click menu commands are explained below
-        const perms = json.default_member_permissions;
-        // Only list commands this member can actually run.
-        if (perms && !i.memberPermissions?.has(BigInt(perms))) continue;
+      const groups = commandsFor(i);
+      const names = [...groups.keys()];
+      // One category per page keeps every page far below Discord's size limits.
+      const render = (category) => {
+        const lines = [...groups.get(category)];
+        if (category === names[0]) lines.push('', 'Right-click a message → **Apps** → **Report message** to report it to staff.');
+        return {
+          embeds: [new EmbedBuilder().setColor(BRAND).setTitle(category).setDescription(lines.join('\n'))
+            .setFooter({ text: names.length > 1 ? 'Pick another category below' : i.client.user.username })],
+          components: names.length > 1 ? [new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
+            .setCustomId('help-category')
+            .addOptions(names.map((n) => ({ label: `${n} (${groups.get(n).length})`, value: n, default: n === category }))))] : [],
+          flags: MessageFlags.Ephemeral,
+        };
+      };
 
-        // One line per command keeps the list under Discord's embed size limit.
-        const id = i.client.application.commands.cache.find((c) => c.name === json.name)?.id;
-        const subs = json.options?.filter((o) => o.type === ApplicationCommandOptionType.Subcommand).map((s) => s.name) ?? [];
-        const name = id ? `</${json.name}${subs.length ? ` ${subs[0]}` : ''}:${id}>` : `\`/${json.name}\``;
-        const more = subs.length > 1 ? ` (${subs.join(', ')})` : '';
-        (perms ? staff : everyone).push(`${name} · ${json.description}${more}`);
-      }
-
-      everyone.push('', 'Right-click a message → **Apps** → **Report message** to report it to staff.');
-
-      // Everyone and staff get their own embed, so each stays under the 4096-character limit.
-      // ponytail: a message holds 6000 characters in total; past ~60 commands switch to a category menu.
-      const embeds = [new EmbedBuilder().setColor(BRAND).setTitle(`👋 ${i.client.user.username}`).setDescription(everyone.join('\n'))];
-      if (staff.length) embeds.push(new EmbedBuilder().setColor(BRAND).setTitle('🛠️ Staff').setDescription(staff.join('\n')));
-      await i.reply({ embeds, flags: MessageFlags.Ephemeral });
+      const response = await i.reply(render(names[0]));
+      if (names.length < 2) return;
+      const collector = response.createMessageComponentCollector({ time: 300_000 });
+      collector.on('collect', (select) => select.update(render(select.values[0])));
+      collector.on('end', () => i.editReply({ components: [] }).catch(() => {}));
     },
   },
 ];

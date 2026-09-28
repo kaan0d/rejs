@@ -243,3 +243,58 @@ test('reports need a channel, block self-reports and have a cooldown', async () 
   assert.equal(posted.length, 1);
   assert.match(await reports.createReport(guild, reporter, target, 'again'), /report again/);
 });
+
+const automation = require('../src/automation');
+const giveaways = require('../src/giveaways');
+
+test('auto-responders match phrases, ignoring case, and respect channel limits', () => {
+  db.prepare("INSERT INTO responders (guild_id, trigger, response, channels) VALUES ('ar', 'How do I join', 'IP: 1.2.3.4', '[]')").run();
+  db.prepare("INSERT INTO responders (guild_id, trigger, response, channels) VALUES ('ar', 'rules', 'See #rules', '[\"c1\"]')").run();
+  assert.equal(automation.matchResponder('ar', 'c9', 'hey HOW DO I JOIN the server?').response, 'IP: 1.2.3.4');
+  assert.equal(automation.matchResponder('ar', 'c9', 'where are the rules'), null);
+  assert.equal(automation.matchResponder('ar', 'c1', 'where are the rules').response, 'See #rules');
+});
+
+test('due reminders are sent once, falling back to DM', async () => {
+  const sent = [];
+  db.prepare("INSERT INTO reminders (user_id, channel_id, text, due_at) VALUES ('u', 'gone', 'check server', ?)").run(Date.now() - 1);
+  db.prepare("INSERT INTO reminders (user_id, channel_id, text, due_at) VALUES ('u', 'c', 'later', ?)").run(Date.now() + 3_600_000);
+  const client = { channels: { cache: new Map() }, users: { fetch: async () => ({ send: async (t) => sent.push(t) }) } };
+  await automation.deliverReminders(client);
+  await automation.deliverReminders(client);
+  assert.deepEqual(sent, ['⏰ <@u>, reminder: check server']);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM reminders').get().n, 1);
+});
+
+test('giveaway winners must still qualify, and rerolls skip earlier winners', async () => {
+  const { lastInsertRowid: id } = db.prepare("INSERT INTO giveaways (guild_id, channel_id, host_id, prize, winners, ends_at, required_role) VALUES ('gw', 'c', 'h', 'Nitro', 2, 0, 'vip')").run();
+  for (const u of ['a', 'b', 'c', 'd']) db.prepare('INSERT INTO giveaway_entries VALUES (?, ?)').run(id, u);
+  const member = (userId, roles) => ({ id: userId, roles: { cache: new Set(roles) }, user: { createdTimestamp: 0 } });
+  const members = { a: member('a', ['vip']), b: member('b', ['vip']), c: member('c', []), d: member('d', ['vip']) };
+  const guild = { members: { fetch: async (u) => members[u] ?? Promise.reject(new Error('left')) } };
+  const g = giveaways.getGiveaway(id);
+  const first = await giveaways.drawWinners(guild, g, 2);
+  assert.equal(first.length, 2);
+  assert.ok(!first.includes('c'));
+  const reroll = await giveaways.drawWinners(guild, g, 5, first);
+  assert.deepEqual(reroll.sort(), ['a', 'b', 'd'].filter((u) => !first.includes(u)).sort());
+});
+
+test('player history becomes an hourly sparkline with the peak', () => {
+  const now = 10 * 86_400_000;
+  const s = {};
+  monitor.recordCount('ph', s, 10, now - 3 * 3_600_000);
+  monitor.recordCount('ph', s, 99, now - 3 * 3_600_000 + 60_000); // too soon, skipped
+  monitor.recordCount('ph', s, 40, now - 30 * 60_000);
+  const { spark, peak, samples } = monitor.last24h('ph', now);
+  assert.equal(samples, 2);
+  assert.equal(peak.count, 40);
+  assert.equal(spark.length, 24);
+  assert.equal(spark.at(-1), '█');
+  assert.equal(spark.at(-4), '▃');
+});
+
+test('watchlist entries accept names, identifiers and mentions', () => {
+  assert.equal(monitor.watchKey('<@123456789012345678>'), '123456789012345678');
+  assert.equal(monitor.watchKey(' license:abc '), 'license:abc');
+});

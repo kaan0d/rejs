@@ -25,7 +25,12 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 - **AutoMod.** `/automod` switches on Discord's own filters: blocked words, invite links, mention spam and spam. Discord enforces them even while the bot is offline.
 - **Auto-role.** New members get a role when they join, or after they accept the rules.
 - **Scheduled messages.** Repeating messages such as rules reminders or restart warnings.
-- **FiveM server monitor.** Joins and leaves are grouped into one embed per update, with how long each player stayed. The bot posts once when the server goes offline and once when it comes back. Its status shows the player count. `/playtime` ranks players from the recorded sessions.
+- **Auto-replies and tags.** The bot answers messages that contain a phrase (optionally only in some channels; needs Message Content). Staff save text snippets and post them with `/tag`.
+- **Sticky messages and auto-publish.** Keep a message at the bottom of a channel. Publish announcement posts to following servers automatically.
+- **Reminders.** `/remind in:2h about:check the server`, in the channel or by DM.
+- **Giveaways.** A button to enter, several winners, role and account-age requirements, ending early and rerolls.
+- **Temporary voice channels.** Joining a hub creates a personal voice channel that disappears when empty. Owners rename it, set a limit, lock or hide it, let people in, remove people, and hand it over.
+- **FiveM server monitor.** Joins and leaves are grouped into one embed per update, with how long each player stayed. The bot posts once when the server goes offline and once when it comes back. Its status shows the player count, a voice channel name can show it too, and `/server` shows a 24-hour chart with the peak. `/playtime` ranks players from the recorded sessions, and `/watchlist` pings staff when chosen players join.
 - **Per-server settings.** Each Discord server has its own channels, rules and game server.
 
 ## Setup
@@ -33,7 +38,7 @@ Everything is a slash command. Staff commands are hidden from members who can't 
 Requires **Node.js 22.13 or newer**. The bot uses Node's built-in SQLite, so there is nothing to compile.
 
 1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications). Under **Bot**, turn on **Server Members Intent** (required). Turn on **Message Content Intent** too if you want message text in the logs. Without it the bot still runs, but deleted messages are logged without their text and edits are not logged.
-2. Invite the bot with the `bot` and `applications.commands` scopes. Giving it **Administrator** is simplest. At minimum it needs: View Channels, Send Messages, Embed Links, Attach Files, Manage Messages, Manage Roles, Manage Channels, Manage Nicknames, Moderate Members, Kick Members, Ban Members, Create Invite (for accepted appeals), View Audit Log (for anti-nuke), Create Public Threads, Create Private Threads, Send Messages in Threads and Manage Threads (for tickets and suggestions) and Manage Server (for AutoMod, bulk bans and raising the verification level during a raid). Put the bot's role above every role it should manage.
+2. Invite the bot with the `bot` and `applications.commands` scopes. Giving it **Administrator** is simplest. At minimum it needs: View Channels, Send Messages, Embed Links, Attach Files, Manage Messages, Manage Roles, Manage Channels, Manage Nicknames, Moderate Members, Kick Members, Ban Members, Create Invite (for accepted appeals), View Audit Log (for anti-nuke), Create Public Threads, Create Private Threads, Send Messages in Threads and Manage Threads (for tickets and suggestions), Move Members (for temporary voice channels) and Manage Server (for AutoMod, bulk bans and raising the verification level during a raid). Put the bot's role above every role it should manage.
 3. Install and configure:
    ```sh
    git clone https://github.com/kaan0d/rejs.git
@@ -57,7 +62,10 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 
 | Command | Who | What it does |
 | --- | --- | --- |
-| `/help` | Everyone | Lists the commands you can use. |
+| `/help` | Everyone | Lists the commands you can use, by category. |
+| `/tag <name> [for]` | Everyone | Posts a saved answer. |
+| `/remind <in> <about> [dm]` / `/reminders list\|delete` | Everyone | Sets and manages your reminders. |
+| `/voice rename\|limit\|lock\|unlock\|hide\|unhide\|allow\|kick\|transfer\|claim` | Everyone | Controls your temporary voice channel. |
 | `/ping` | Everyone | Shows bot latency. |
 | `/userinfo [user]` / `/serverinfo` / `/avatar [user]` | Everyone | Shows account age, join date and roles; server stats; or a full-size avatar and banner. Staff also see the member's record in `/userinfo`. |
 | `/server` | Everyone | Shows live game server status, player count, ping and map. |
@@ -82,6 +90,13 @@ The monitor reads the standard FiveM endpoints `/players.json` and `/dynamic.jso
 | `/bulk role-give\|role-take <role> [only_with]` | Administrator | Gives or takes a role for everyone, or for members who have another role. |
 | `/automod words\|invites\|mentions\|spam\|show` | Manage Server | Turns Discord's AutoMod filters on or off. |
 | `/schedule add\|list\|remove` | Manage Server | Sets up repeating messages, at least 10 minutes apart. |
+| `/autoresponder add\|remove\|list` | Manage Server | Sets up automatic replies to phrases. |
+| `/tags add\|edit\|remove\|list` | Manage Messages | Manages saved answers. |
+| `/sticky set\|remove` | Manage Messages | Keeps a message at the bottom of a channel. |
+| `/autopublish add\|remove\|list` | Manage Server | Publishes announcement posts automatically. |
+| `/giveaway start\|end\|reroll\|list` | Manage Server | Runs giveaways. |
+| `/tempvoice setup\|off` | Manage Channels | Creates the "join to create" voice channel. |
+| `/watchlist add\|remove\|list` | Moderate Members | Pings staff when chosen players join the game server. |
 | `/logs set\|ignore\|unignore\|show` | Manage Server | Chooses the log channels and what they skip. |
 | `/protection` | Manage Server | Shows the state of every protection feature. |
 | `/antiraid set\|end` | Manage Server | Sets raid detection and its actions, or ends raid mode. |
