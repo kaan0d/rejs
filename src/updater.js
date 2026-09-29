@@ -24,7 +24,8 @@ async function update() {
   const before = await git('rev-parse', 'HEAD');
   await git('pull', '--ff-only', '--quiet');
   const changed = await git('diff', '--name-only', before, 'HEAD');
-  if (/^package(-lock)?\.json$/m.test(changed)) await run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund']);
+  // npm ci never rewrites the tracked lockfile, so the next pull can't hit a local change.
+  if (/^package(-lock)?\.json$/m.test(changed)) await run('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund']);
   return git('log', '-1', '--format=%h %s');
 }
 
